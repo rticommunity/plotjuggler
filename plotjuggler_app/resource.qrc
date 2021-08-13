@@ -263,6 +263,8 @@
         <file>resources/svg/paste.svg</file>
         <file>resources/svg/collapse.svg</file>
         <file>resources/svg/expand.svg</file>
+        <file>resources/svg/alarm-bell-outline_svgrepo.svg</file>
+        <file>resources/svg/alarm-bell-filled_svgrepo.svg</file>
         <file>cheatsheet/img/tutorial_drag_drop.png</file>
         <file>cheatsheet/img/tutorial_filter.png</file>
         <file>cheatsheet/img/tutorial_font_size.png</file>
@@ -275,5 +277,8 @@
         <file>cheatsheet/img/tutorial_layout.png</file>
         <file>resources/svg/trash.svg</file>
         <file>resources/svg/clear.svg</file>
+        <file>resources/pj_splash_rti.jpg</file>
+        <file>resources/html/about_window_title_rti.html</file>
+        <file>resources/html/about_window_body_rti.html</file>
     </qresource>
 </RCC>

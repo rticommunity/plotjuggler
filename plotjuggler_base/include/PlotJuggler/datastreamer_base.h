@@ -30,6 +30,13 @@ public:
 
   virtual bool isRunning() const = 0;
 
+  // Gets the action to execute when clicking the 'notifications' button and
+  // the current number of outstanding notifications
+  virtual std::pair<QAction*, int> notificationAction() 
+  {
+    return std::make_pair( (QAction *)nullptr, (int)0);
+  } 
+
   virtual ~DataStreamer() = default;
 
   std::mutex& mutex()
@@ -76,6 +83,14 @@ signals:
 
   // Stopping a plugin from the "inside"
   void closed();
+
+  // Plugin notification that its status has changed bewteen 'running' and 'not-running'
+  // PJ modify the Start/Stop button is the plugin is currently selected
+  void runStatusChanged(const QString &pluginName, bool running);
+
+  // Plugin notifications.
+  // PJ modifies the "notifications" button to indicate whether there are any
+  void notificationsChanged(int active_notification_count);
 
 private:
   std::mutex _mutex;

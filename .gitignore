@@ -43,3 +43,9 @@ debian
 cmake-build-*
 
 installer/io.plotjuggler.application/data
+
+# Visual Studio Code artifacts
+.vscode
+
+# MacOS artifacts
+.DS_Store

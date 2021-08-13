@@ -40,8 +40,8 @@ public:
   bool loadDataFromFile(const FileLoadInfo& info);
 
 
-  void stopStreamingPlugin();
-  void startStreamingPlugin(QString streamer_name);
+  void stopStreamingPlugin(bool plugin_initiated = false);
+  void startStreamingPlugin(QString streamer_name, bool plugin_initiated = false);
 
 public slots:
 
@@ -55,6 +55,7 @@ public slots:
   void on_streamingToggled();
 
   void on_buttonStreamingPause_toggled(bool paused);
+  void on_buttonStreamingNotifications_clicked();
 
   void on_streamingSpinBox_valueChanged(int value);
 
@@ -126,6 +127,20 @@ private:
 
   double _tracker_time;
 
+  QStringList _enabled_plugins;
+  QStringList _disabled_plugins;
+  
+  // This is the name specified in the cmdline. It may be mangled in that whitespace
+  // is removed because it cannot be specified in a -D compile-time mcacro
+  QString _selected_streamer;  
+  // This is the name one matched to one of the loaded streamers
+  QString _selected_streamer_matched;
+  bool _autostart_streamer;
+  QString _about_title;
+  QString _about_body;
+
+
+
   std::vector<FileLoadInfo> _loaded_datafiles;
   CurveTracker::Parameter _tracker_param;
 
@@ -144,8 +159,6 @@ private:
   QMovie* _animated_streaming_movie;
   QTimer* _animated_streaming_timer;
   
-  
-
   enum LabelStatus
   {
     LEFT,
@@ -211,6 +224,9 @@ public slots:
 
   void on_deleteSerieFromGroup(std::string group_name );
 
+  void on_runStatusChanged(const QString &plugin_name, bool running);
+  void on_streamingNotificationsChanged(int active_notifications_count);
+
   void onActionFullscreenTriggered();
 
   void on_actionReportBug_triggered();
@@ -228,6 +244,8 @@ public slots:
   void on_pushButtonTimeTracker_pressed();
   void on_pushButtonRemoveTimeOffset_toggled(bool checked);
 
+  void on_buttonStreamingStart_clicked();
+
 private slots:
   void on_stylesheetChanged(QString style_name);
   void on_actionPreferences_triggered();
@@ -237,7 +255,6 @@ private slots:
   void on_pushButtonLegend_clicked();
   void on_pushButtonZoomOut_clicked();
 
-  void on_buttonStreamingStart_clicked();
   void on_buttonStreamingOptions_clicked();
   void on_buttonHideFileFrame_clicked();
   void on_buttonHideStreamingFrame_clicked();
@@ -252,6 +269,7 @@ private slots:
 private:
   QStringList readAllCurvesFromXML(QDomElement root_node);
   void loadAllPlugins(QStringList command_line_plugin_folders);
+  static QString ReadFileContent(QString file_path);
 };
 
 class PopupMenu : public QMenu

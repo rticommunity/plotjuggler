@@ -31,7 +31,6 @@
 #include <QHeaderView>
 #include <QStandardPaths>
 #include <QXmlStreamReader>
-
 #include "mainwindow.h"
 #include "curvelist_panel.h"
 #include "tabbedplotwidget.h"
@@ -57,7 +56,19 @@
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #endif
 
-
+QString MainWindow::ReadFileContent(QString filepath)
+{
+    QFile file(filepath);
+    if ( !file.open(QFile::ReadOnly | QFile::Text) ) 
+    {
+      qDebug() << "MainWindow::MainWindow() failed to open " << filepath;
+      return QString();
+    }
+    else 
+    {
+      return file.readAll();
+    }  
+}
 
 MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* parent)
   : QMainWindow(parent)
@@ -79,7 +90,33 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
   QLocale::setDefault(QLocale::c());  // set as default
 
   _test_option = commandline_parser.isSet("test");
+
   _autostart_publishers = commandline_parser.isSet("publish");
+
+  if ( commandline_parser.isSet("enabled_plugins")) 
+  {
+    _enabled_plugins  = commandline_parser.value("enabled_plugins").split(";", QString::SkipEmptyParts);
+    // Treat the command-line parameter  '--enabled_plugins *' to mean all plugings are enabled
+    if (  (_enabled_plugins.size() == 1) && (_enabled_plugins.contains("*")) ) 
+    {
+      _enabled_plugins.clear();
+    }
+  }
+  if ( commandline_parser.isSet("disabled_plugins")) 
+  {
+    _disabled_plugins = commandline_parser.value("disabled_plugins").split(":", QString::SkipEmptyParts);
+  }
+  _selected_streamer    = commandline_parser.value("selected_streamer");
+  _autostart_streamer = (commandline_parser.value("subscribe") == "true");
+
+  if ( commandline_parser.isSet("about_title")) 
+  {
+    _about_title = MainWindow::ReadFileContent(commandline_parser.value("about_title"));
+  }
+  if ( commandline_parser.isSet("about_body")) 
+  {
+    _about_body = MainWindow::ReadFileContent(commandline_parser.value("about_body"));
+  }
 
   _curvelist_widget = new CurveListPanel(_mapped_plot_data, _custom_plots, this);
 
@@ -217,6 +254,13 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
   this->setMenuBar(ui->menuBar);
   ui->menuBar->setNativeMenuBar(false);
 
+
+  if ( commandline_parser.isSet("title") )
+  {
+    QString title = commandline_parser.value("title");
+    setWindowTitle(QApplication::translate("MainWindow", title.toStdString().c_str(), nullptr));
+  }
+
   if (_test_option)
   {
     buildDummyData();
@@ -320,14 +364,12 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
   _message_parser_factory.insert( {"CBOR", std::make_shared<CBOR_ParserCreator>() });
   _message_parser_factory.insert( {"BSON", std::make_shared<BSON_ParserCreator>() });
   _message_parser_factory.insert( {"MessagePack", std::make_shared<MessagePack_ParserCreator>() });
-
 }
 
 MainWindow::~MainWindow()
 {
   // important: avoid problems with plugins
   _mapped_plot_data.user_defined.clear();
-
   delete ui;
 }
 
@@ -529,9 +571,20 @@ QStringList MainWindow::initializePlugins(QString directory_name)
     {
       continue;
     }
-
     if (loaded_plugins.find(filename) != loaded_plugins.end())
     {
+      continue;
+    }
+
+    if ( (_enabled_plugins.size() > 0) && (_enabled_plugins.contains(fileinfo.baseName()) == false) )
+    {
+      // Debug() << "Skipping plugin [ " << fileinfo.baseName() << " ] because it is not explicitly enabled";
+      continue;
+    }
+  
+    if ( (_disabled_plugins.size() > 0) && (_disabled_plugins.contains(fileinfo.baseName()) == true) )
+    {
+      // qDebug() << "Skipping plugin [ " << fileinfo.baseName() << " ] because it is explicitly disabled";
       continue;
     }
 
@@ -692,6 +745,12 @@ QStringList MainWindow::initializePlugins(QString directory_name)
               _replot_timer->start( 40 );
             }
           });
+
+          connect(streamer, &DataStreamer::runStatusChanged,
+                  this, &MainWindow::on_runStatusChanged );
+
+          connect(streamer, &DataStreamer::notificationsChanged,
+                  this, &MainWindow::on_streamingNotificationsChanged );
         }
       }
     }
@@ -703,32 +762,57 @@ QStringList MainWindow::initializePlugins(QString directory_name)
       }
     }
   }
+  // End of plugin loading
+
+
   if( !_data_streamer.empty() )
   {
+
     QSignalBlocker block(ui->comboStreaming);
     ui->comboStreaming->setEnabled(true);
     ui->buttonStreamingStart->setEnabled(true);
 
     for(const auto& it: _data_streamer)
     {
-      if( ui->comboStreaming->findText(it.first) == -1){
-        ui->comboStreaming->addItem(it.first);
+      if( ui->comboStreaming->findText(it.first) == -1) 
+      {
+        // Place the selected sttreamer first in the list as well...
+        QString name_without_spaces(it.first);
+        name_without_spaces.remove(' ');
+        if (  (_selected_streamer == it.first) || (_selected_streamer == name_without_spaces) ) 
+        {
+          _selected_streamer_matched = it.first;
+          ui->comboStreaming->insertItem(0, it.first);
+        }
+        else 
+        {
+          ui->comboStreaming->addItem(it.first);
+        }
+      }
+      else 
+      {
+        // qDebug() << "MainWindow::initializePlugins  [ " <<  it.first << " ] already in comboStreaming";
       }
     }
 
-    // remember the previous one
-    QSettings settings;
-    QString streaming_name = settings.value("MainWindow.previousStreamingPlugin",
-                                            ui->comboStreaming->itemText(0)).toString();
-
-    auto streamer_it = _data_streamer.find(streaming_name);
-    if( streamer_it == _data_streamer.end() )
+    // If there is no _selected_streamer_matched (from command-line options), 
+    // or the one specified one is not an available choices, then use same as last run (saved in settings)
+    // If the last one is also not an available choices, select the first choice
+    auto streamer_it = _data_streamer.find(_selected_streamer_matched);
+    if ( streamer_it == _data_streamer.end() )
     {
-      streamer_it = _data_streamer.begin();
-      streaming_name = streamer_it->first;
+      QSettings settings;
+      QString streamer_name = settings.value("MainWindow.previousStreamingPlugin",
+                                              ui->comboStreaming->itemText(0)).toString();
+
+      streamer_it = _data_streamer.find(streamer_name);  
+      if ( streamer_it == _data_streamer.end() )
+      {
+        streamer_it = _data_streamer.begin();
+      }                              
     }
 
-    ui->comboStreaming->setCurrentText(streaming_name);
+    ui->comboStreaming->setCurrentText(streamer_it->first);
 
     bool contains_options = !streamer_it->second->availableActions().empty();
     ui->buttonStreamingOptions->setEnabled(contains_options);
@@ -1363,6 +1447,16 @@ bool MainWindow::loadDataFromFile(const FileLoadInfo& info)
   return true;
 }
 
+void MainWindow::on_buttonStreamingNotifications_clicked()
+{
+  auto streamer = _data_streamer.at( ui->comboStreaming->currentText() );
+  QAction* notification_button_action = streamer->notificationAction().first;
+  if (notification_button_action != nullptr) 
+  {
+    notification_button_action->trigger();
+  }
+}
+
 
 void MainWindow::on_buttonStreamingPause_toggled(bool paused)
 {
@@ -1404,12 +1498,14 @@ void MainWindow::on_streamingToggled()
 }
 
 
-void MainWindow::stopStreamingPlugin()
+void MainWindow::stopStreamingPlugin(bool plugin_initiated)
 {
   ui->comboStreaming->setEnabled(true);
   ui->buttonStreamingStart->setText("Start");
+
   ui->buttonStreamingPause->setEnabled(false);
   ui->labelStreamingAnimation->setHidden(true);
+  ui->buttonStreamingNotifications->setEnabled(false);
 
   // force the cleanups typically done in on_buttonStreamingPause_toggled
   if(  ui->buttonStreamingPause->isChecked() )
@@ -1422,10 +1518,10 @@ void MainWindow::stopStreamingPlugin()
     on_buttonStreamingPause_toggled(true);
   }
 
-  if( _active_streamer_plugin ) {
+  if( _active_streamer_plugin && (plugin_initiated == false) ) {
     _active_streamer_plugin->shutdown();
-    _active_streamer_plugin = nullptr;
   }
+  _active_streamer_plugin = nullptr;
 
   if (!_mapped_plot_data.numeric.empty())
   {
@@ -1437,45 +1533,63 @@ void MainWindow::stopStreamingPlugin()
 
 }
 
-void MainWindow::startStreamingPlugin(QString streamer_name)
+void MainWindow::startStreamingPlugin(QString streamer_name, bool plugin_initiated)
 {
-  if (_active_streamer_plugin)
-  {
-    _active_streamer_plugin->shutdown();
-    _active_streamer_plugin = nullptr;
-  }
-
   if (_data_streamer.empty())
   {
     qDebug() << "Error, no streamer loaded";
     return;
   }
-
+  
+  DataStreamerPtr plugin_to_start = nullptr;
   auto it = _data_streamer.find(streamer_name);
-  if (it != _data_streamer.end())
+  if (it == _data_streamer.end())
   {
-    _active_streamer_plugin = it->second;
-  }
-  else
-  {
-    qDebug() << "Error. The streamer " << streamer_name << " can't be loaded";
+    qDebug() << "Error. The streamer " << streamer_name << " is not loaded";
     _active_streamer_plugin = nullptr;
     return;
+  }
+  
+  plugin_to_start = it->second;
+  if ( plugin_initiated == false )
+  {
+    if (_active_streamer_plugin) 
+    {
+      _active_streamer_plugin->shutdown();
+      _active_streamer_plugin = nullptr;
+    }
+  }
+  else 
+  {
+    if ( _active_streamer_plugin && (_active_streamer_plugin != plugin_to_start) )
+    {
+      _active_streamer_plugin->shutdown();
+      _active_streamer_plugin = nullptr;
+    }
+  }
+  _active_streamer_plugin = plugin_to_start;
+ 
+
+  // plugin_initiated indicates that the plugin is already started 
+  // using some plugin-specific means
+  bool started = plugin_initiated;
+  if ( !started ) 
+  {
+    try
+    {
+      // TODO data sources (argument to _active_streamer_plugin->start()
+      started = _active_streamer_plugin && _active_streamer_plugin->start(nullptr);
+    }
+    catch (std::runtime_error& err)
+    {
+      QMessageBox::warning(this, tr("Exception from the plugin"),
+                          tr("The plugin thrown the following exception: \n\n %1\n").arg(err.what()));
+      _active_streamer_plugin = nullptr;
+      return;
+    }
   }
 
-  bool started = false;
-  try
-  {
-    // TODO data sources (argument to _active_streamer_plugin->start()
-    started = _active_streamer_plugin && _active_streamer_plugin->start(nullptr);
-  }
-  catch (std::runtime_error& err)
-  {
-    QMessageBox::warning(this, tr("Exception from the plugin"),
-                         tr("The plugin thrown the following exception: \n\n %1\n").arg(err.what()));
-    _active_streamer_plugin = nullptr;
-    return;
-  }
+  // The attemp to start the plugin may have succeded or failed
   if (started)
   {
     {
@@ -1485,12 +1599,13 @@ void MainWindow::startStreamingPlugin(QString streamer_name)
 
     ui->actionClearBuffer->setEnabled(true);
     ui->actionDeleteAllData->setToolTip("Stop streaming to be able to delete the data");
-
     ui->buttonStreamingStart->setText("Stop");
     ui->buttonStreamingPause->setEnabled(true);
     ui->buttonStreamingPause->setChecked(false);
     ui->comboStreaming->setEnabled(false);
     ui->labelStreamingAnimation->setHidden(false);
+    ui->buttonStreamingNotifications->setEnabled(true);
+
 
     // force start
     on_buttonStreamingPause_toggled(false);
@@ -1531,6 +1646,8 @@ void MainWindow::on_stylesheetChanged(QString theme)
 {
   ui->pushButtonLoadDatafile->setIcon(LoadSvgIcon(":/resources/svg/import.svg", theme));
   ui->buttonStreamingPause->setIcon(LoadSvgIcon(":/resources/svg/pause.svg", theme));
+  ui->buttonStreamingNotifications->setIcon(LoadSvgIcon(":/resources/svg/alarm-bell-outline_svgrepo.svg", theme));
+  ui->buttonStreamingNotifications->setVisible(false);
 
   ui->buttonRecentData->setIcon(LoadSvgIcon(":/resources/svg/right-arrow.svg", theme));
   ui->buttonRecentLayout->setIcon(LoadSvgIcon(":/resources/svg/right-arrow.svg", theme));
@@ -2190,6 +2307,50 @@ void MainWindow::on_deleteSerieFromGroup(std::string group_name )
   onDeleteMultipleCurves(names);
 }
 
+void MainWindow::on_runStatusChanged(const QString &plugin_name, bool running)
+{
+  // Change the button only the the plugin matches the on 
+  // currently selected in the combo box
+  // signal is the one 
+  if ( ui->comboStreaming->currentText() != plugin_name) 
+  {
+    return;
+  }
+
+  if ( running ) 
+  {
+    startStreamingPlugin(plugin_name, true);
+  }
+  else
+  {
+    stopStreamingPlugin(true);
+  }
+}
+
+void MainWindow::on_streamingNotificationsChanged(int active_count)
+{
+  if ( active_count > 0 ) {
+    ui->buttonStreamingNotifications->setEnabled(true);
+    ui->buttonStreamingNotifications->setVisible(true);
+    auto streamer = _data_streamer.at( ui->comboStreaming->currentText() );
+    QString tooltipText;
+    tooltipText.append(streamer->name()).append(" has ").append(QString().setNum(active_count)).append(" outstanding");
+    if ( active_count > 1 )
+    {
+      tooltipText.append(" notitications");
+    }
+    else 
+    {
+      tooltipText.append(" notitication");
+    }
+    ui->buttonStreamingNotifications->setToolTip(tooltipText);
+  }
+  else 
+  {
+    ui->buttonStreamingNotifications->setVisible(false);
+  }
+}
+
 void MainWindow::on_pushButtonUseDateTime_toggled(bool checked)
 {
   static bool first = true;
@@ -2406,8 +2567,18 @@ void MainWindow::on_actionAbout_triggered()
   ui->setupUi(dialog);
 
   ui->label_version->setText(QApplication::applicationVersion());
-  dialog->setAttribute(Qt::WA_DeleteOnClose);
 
+  if ( _about_title.isEmpty() == false )
+  {
+    ui->titleTextBrowser->setHtml(_about_title);
+  }
+
+  if ( _about_body.isEmpty() == false )
+  {
+    ui->bodyTextBrowser->setHtml(_about_body);
+  }
+
+  dialog->setAttribute(Qt::WA_DeleteOnClose);
   dialog->exec();
 }
 
@@ -2879,6 +3050,16 @@ void MainWindow::on_comboStreaming_currentIndexChanged(const QString &current_te
   settings.setValue("MainWindow.previousStreamingPlugin", current_text );
   auto streamer = _data_streamer.at( current_text );
   ui->buttonStreamingOptions->setEnabled( !streamer->availableActions().empty() );
+
+  std::pair<QAction*, int> notifications_pair = streamer->notificationAction();
+  if (notifications_pair.first == nullptr) 
+  {
+    ui->buttonStreamingNotifications->setVisible(false);
+  }
+  else 
+  {
+    on_streamingNotificationsChanged(notifications_pair.second);
+  }
 }
 
 void MainWindow::on_buttonStreamingStart_clicked()
@@ -2929,8 +3110,13 @@ void MainWindow::on_buttonRecentData_clicked()
 
 void MainWindow::on_buttonStreamingOptions_clicked()
 {
-  auto streamer = _data_streamer.at( ui->comboStreaming->currentText() );
+  if ( _data_streamer.empty() ) 
+  {
+    qDebug() << "Error, no streamer loaded";
+    return;
+  }
 
+  auto streamer = _data_streamer.at( ui->comboStreaming->currentText() );
   PopupMenu* menu = new PopupMenu(ui->buttonStreamingOptions, this);
   for( auto action: streamer->availableActions() ) {
     menu->addAction(action);

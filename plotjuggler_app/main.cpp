@@ -87,9 +87,69 @@ QPixmap getFunnySplashscreen()
   return QPixmap(filename);
 }
 
+
+
+#define MERGE_ARGUMENTS_SIZE (32)
+typedef char *MergedArguments[MERGE_ARGUMENTS_SIZE];
+
+/*
+ * Merges any command-line arguments provided in the definition of
+ * PJ_DEFAULT_ARGS (e.g. using add_definitions in CMake with
+ * the argumemts specified in the command-line.
+ */
+int merge_default_arguments(MergedArguments &new_argv, int argc, char* argv[])
+{
+  QStringList default_cmdline_args;
+  
+#ifdef PJ_DEFAULT_ARGS
+  default_cmdline_args = QString(PJ_DEFAULT_ARGS).split(" ", QString::SkipEmptyParts);
+#endif 
+
+  int max_cmmand_line_args = MERGE_ARGUMENTS_SIZE - default_cmdline_args.size();
+  if ( argc > max_cmmand_line_args )
+  {
+    qDebug() << "Maximum arguments exceeded. Limit is " << max_cmmand_line_args << "got " << argc; 
+    return -1;
+  }
+
+  // preserve arg[0] => execuatle path
+  QStringList merged_args(argv[0]);
+
+  // Add the remain arguments, reoplacing escaped characters. 
+  // Escaping needed because some chars cannot be entered easily in the -DPJ_DEFAULT_ARGS preprocessor directive
+  //   _0x20_   -->   ' '   (space)
+  //   _0x3b_   -->   ';'   (semicolon)
+  for ( const auto& cmdline_arg : default_cmdline_args  )
+  {
+    // replace(const QString &before, const QString &after, Qt::CaseSensitivity cs = Qt::CaseSensitive)
+    QString unscaped_arg(cmdline_arg);
+    merged_args << unscaped_arg.replace("_0x20_", " ", Qt::CaseSensitive).replace("_0x3b_", ";", Qt::CaseSensitive);
+  }
+
+  // Then add the arguments entered to the command-lien with no replacements
+  // If an argument is repeated it overrides the 'default' setting
+  for (int i=1; i< argc; ++i ) {
+    merged_args << argv[i];
+  }
+
+  int new_argc = merged_args.size();;
+  for (int i=0; i< new_argc; ++i) {
+    new_argv[i] = strdup(merged_args.at(i).toLocal8Bit().data());
+  }
+
+  return new_argc;
+}
+
+
 int main(int argc, char* argv[])
 {
-  QApplication app(argc, argv);
+  MergedArguments new_argv;
+  int new_argc = merge_default_arguments(new_argv, argc, argv);
+  if ( new_argc < 0 ) 
+  {
+    return -1;
+  }
+  QApplication app(new_argc, new_argv);
 
   QCoreApplication::setOrganizationName("PlotJuggler");
   QCoreApplication::setApplicationName("PlotJuggler-3");
@@ -158,14 +218,55 @@ int main(int argc, char* argv[])
   QCommandLineOption nogl_option(QStringList() << "disable_opengl",
                                  "Disable OpenGL display before starting the application. "
                                  "You can enable it again in the 'Preferences' menu.");
-
   parser.addOption(nogl_option);
+
+
+
+  QCommandLineOption enabled_plugins_option(QStringList() << "enabled_plugins",
+                                     "Limit the loaded plugins to ones in the semicolon-separated list", "name_list");
+  parser.addOption(enabled_plugins_option);
+
+  QCommandLineOption disabled_plugins_option(QStringList() << "disabled_plugins",
+                                     "Do not load any of the plugins in the semicolon separated list", "name_list");
+  parser.addOption(disabled_plugins_option);
+
+  QCommandLineOption selected_streamer_option(QStringList() << "selected_streamer",
+                                    "Make the specified streaming plugin the first selection in the menu", "name");
+  parser.addOption(selected_streamer_option); 
+
+  QCommandLineOption subscribe_option(QStringList() << "s"
+                                                    << "subscribe",
+                                     "Automatically start the default streaming plugin", "bool_value", "false");
+  parser.addOption(subscribe_option); 
+
+  QCommandLineOption title_option(QStringList() << "title",
+                                     "Use the specified text for the main window title", "text");
+  parser.addOption(title_option);
+
+  QCommandLineOption filesplash_option(QStringList() << "splash",
+                                     "Load a file containing the splash screen", "file_path");
+  parser.addOption(filesplash_option);
+
+  QCommandLineOption about_title_option(QStringList() << "about_title",
+                                     "Load a file containing the title section for the about dialog", "file_path");
+  parser.addOption(about_title_option);
+
+  QCommandLineOption about_body_option(QStringList() << "about_body",
+                                     "Load a file containing the body section for the about dialogn", "file_path");
+  parser.addOption(about_body_option);
+
 
   parser.process(*qApp);
 
   if (parser.isSet(publish_option) && !parser.isSet(layout_option))
   {
     std::cerr << "Option [ -p / --publish ] is invalid unless [ -l / --layout ] is used too." << std::endl;
+    return -1;
+  }
+
+  if (parser.isSet(enabled_plugins_option) && parser.isSet(disabled_plugins_option))
+  {
+    std::cerr << "Option [ --enabled_plugins ] and [ --disabled_plugins ] can't be used together." << std::endl;
     return -1;
   }
 
@@ -197,10 +298,21 @@ int main(int argc, char* argv[])
    * Please don't do it.
    */
 
+  MainWindow *w;
+
   if (!parser.isSet(nosplash_option) && !(parser.isSet(loadfile_option) || parser.isSet(layout_option)))
   // if(false) // if you uncomment this line, a kitten will die somewhere in the world.
   {
-    QPixmap main_pixmap = getFunnySplashscreen();
+    QPixmap main_pixmap;
+    if ( parser.isSet(filesplash_option) )
+    {
+      main_pixmap   = QPixmap(parser.value(filesplash_option));  
+    }
+    else 
+    {
+      main_pixmap = getFunnySplashscreen();
+    }
+
     QSplashScreen splash(main_pixmap, Qt::WindowStaysOnTopHint);
     QDesktopWidget* desktop = QApplication::desktop();
     const int scrn = desktop->screenNumber();
@@ -216,19 +328,23 @@ int main(int argc, char* argv[])
       app.processEvents();
     }
 
-    MainWindow w(parser);
+    w = new MainWindow(parser);
 
-    deadline = QDateTime::currentDateTime().addMSecs(3000);
+    deadline = QDateTime::currentDateTime().addMSecs(1000);
     while (QDateTime::currentDateTime() < deadline && !splash.isHidden())
     {
       app.processEvents();
     }
 
-    w.show();
-    splash.finish(&w);
-    return app.exec();
+    splash.finish(w);
   }
-  MainWindow w(parser);
-  w.show();
+  else {
+    w = new MainWindow(parser);
+  }
+
+  w->show();
+  if ( parser.value(subscribe_option) == "true" ) {
+    w->on_buttonStreamingStart_clicked();
+  }
   return app.exec();
 }

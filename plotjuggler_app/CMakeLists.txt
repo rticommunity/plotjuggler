@@ -84,6 +84,8 @@ SET( PLOtJUGGLER_SRC
     )
 
 
+#add_definitions(-DPJ_DEFAULT_ARGS="--subscribe true --selected_streamer <selected streamer name> ...")
+
 add_executable(plotjuggler
     ${PLOtJUGGLER_SRC}
     ${RES_SRC}
