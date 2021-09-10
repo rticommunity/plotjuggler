@@ -41,8 +41,8 @@ public:
   bool loadDataFromFile(const FileLoadInfo& info);
 
 
-  void stopStreamingPlugin();
-  void startStreamingPlugin(QString streamer_name);
+  void stopStreamingPlugin(bool plugin_initiated = false);
+  void startStreamingPlugin(QString streamer_name, bool plugin_initiated = false);
   void enableStreamingNotificationsButton(bool enabled);
 
 public slots:
@@ -221,6 +221,7 @@ public slots:
 
   void on_deleteSerieFromGroup(std::string group_name );
 
+  void on_started(const QString &plugin_name);
   void on_streamingNotificationsChanged(int active_notifications_count);
 
   void onActionFullscreenTriggered();

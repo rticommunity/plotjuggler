@@ -1,1 +1,4 @@
 
+[submodule "plotjuggler_plugins/DataStreamRTI"]
+	path = plotjuggler_plugins/DataStreamRTI
+	url = https://github.com/rticommunity/plotjuggler-rti-plugin.git

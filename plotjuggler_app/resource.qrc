@@ -281,5 +281,9 @@
         <file>resources/skin/mainwindow_title.txt</file>
         <file>resources/svg/alarm-bell.svg</file>
         <file>resources/svg/alarm-bell-active.svg</file>
+        <file>../plotjuggler_plugins/DataStreamRTI/skin/about_window_title.html</file>
+        <file>../plotjuggler_plugins/DataStreamRTI/skin/about_window_body.html</file>
+        <file>../plotjuggler_plugins/DataStreamRTI/skin/pj_splashscreen.png</file>
+        <file>../plotjuggler_plugins/DataStreamRTI/skin/mainwindow_title.txt</file>
     </qresource>
 </RCC>

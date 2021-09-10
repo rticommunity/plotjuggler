@@ -94,6 +94,10 @@ signals:
   /// When the plugin stops itself, this signal must be emitted.
   void closed();
 
+  /// The method start () is used by the main app to start streaming.
+  /// When the plugin starts itself, this signal must be emitted.
+  void started(const QString &plugin_name);
+
   // Plugin notifications.
   // PJ modifies the "notifications" button to indicate whether there are any
   void notificationsChanged(int active_notification_count);
