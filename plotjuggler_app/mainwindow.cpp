@@ -1496,7 +1496,7 @@ void MainWindow::on_streamingToggled()
 }
 
 
-void MainWindow::stopStreamingPlugin(bool plugin_initiated)
+void MainWindow::stopStreamingPlugin()
 {
   ui->comboStreaming->setEnabled(true);
   ui->buttonStreamingStart->setText("Start");
@@ -1516,7 +1516,7 @@ void MainWindow::stopStreamingPlugin(bool plugin_initiated)
     on_buttonStreamingPause_toggled(true);
   }
 
-  if( _active_streamer_plugin && (plugin_initiated == false) ) {
+  if( _active_streamer_plugin ) {
     _active_streamer_plugin->shutdown();
     _active_streamer_plugin = nullptr;
   }
@@ -1531,88 +1531,79 @@ void MainWindow::stopStreamingPlugin(bool plugin_initiated)
 
 }
 
-void MainWindow::startStreamingPlugin(QString streamer_name, bool plugin_initiated)
+void MainWindow::configureStartedPlugin(DataStreamerPtr streamer)
 {
+  _active_streamer_plugin = streamer;
+  {
+    std::lock_guard<std::mutex> lock(_active_streamer_plugin->mutex());
+    importPlotDataMap(_active_streamer_plugin->dataMap(), false);
+  }
+
+  ui->actionClearBuffer->setEnabled(true);
+  ui->actionDeleteAllData->setToolTip("Stop streaming to be able to delete the data");
+
+  ui->buttonStreamingStart->setText("Stop");
+  ui->buttonStreamingPause->setEnabled(true);
+  ui->buttonStreamingPause->setChecked(false);
+  ui->comboStreaming->setEnabled(false);
+  ui->labelStreamingAnimation->setHidden(false);
+
+  // force start
+  on_buttonStreamingPause_toggled(false);
+  // this will force the update the max buffer size values
+  on_streamingSpinBox_valueChanged(ui->streamingSpinBox->value());
+}
+
+void MainWindow::startStreamingPlugin(QString streamer_name)
+{
+  if (_active_streamer_plugin)
+  {
+    _active_streamer_plugin->shutdown();
+    _active_streamer_plugin = nullptr;
+  }
+
+  // _active_streamer_plugin is nullptr now
   if (_data_streamer.empty())
   {
     qDebug() << "Error, no streamer loaded";
     return;
   }
 
+  DataStreamerPtr streamer = nullptr;
   auto it = _data_streamer.find(streamer_name);
   if (it == _data_streamer.end())
   {
-    qDebug() << "Error. The streamer " << streamer_name << " is not loaded";
-    _active_streamer_plugin = nullptr;
+    qDebug() << "Error. The streamer " << streamer_name << " can't be loaded";
     return;
-  } 
-
-  DataStreamerPtr plugin_to_start = it->second;
-  if ( plugin_initiated == false )
-  {
-    if (_active_streamer_plugin) 
-    {
-      _active_streamer_plugin->shutdown();
-      _active_streamer_plugin = nullptr;
-    }
   }
-  else 
+  else
   {
-    if ( _active_streamer_plugin && (_active_streamer_plugin != plugin_to_start) )
-    {
-      _active_streamer_plugin->shutdown();
-      _active_streamer_plugin = nullptr;
-    }
+      streamer = it->second;
   }
-  _active_streamer_plugin = plugin_to_start;
 
-  // plugin_initiated indicates that the plugin is already started 
-  // using some plugin-specific means
-  bool started = plugin_initiated;
-  if (!started )
+  bool started = false;
+  try
   {
-    try
-    {
-      // TODO data sources (argument to _active_streamer_plugin->start()
-      started = _active_streamer_plugin && _active_streamer_plugin->start(nullptr);
-    }
-    catch (std::runtime_error& err)
-    {
-      QMessageBox::warning(this, tr("Exception from the plugin"),
-                          tr("The plugin thrown the following exception: \n\n %1\n").arg(err.what()));
-      _active_streamer_plugin = nullptr;
-      return;
-    }
+    // TODO data sources (argument to _active_streamer_plugin->start()
+    started = streamer->start(nullptr);
+  }
+  catch (std::runtime_error& err)
+  {
+    QMessageBox::warning(this, tr("Exception from the plugin"),
+                         tr("The plugin thrown the following exception: \n\n %1\n").arg(err.what()));
+    return;
   }
 
   // The attemp to start the plugin may have succeded or failed
   if (started)
   {
-    {
-      std::lock_guard<std::mutex> lock(_active_streamer_plugin->mutex());
-      importPlotDataMap(_active_streamer_plugin->dataMap(), false);
-    }
-
-    ui->actionClearBuffer->setEnabled(true);
-    ui->actionDeleteAllData->setToolTip("Stop streaming to be able to delete the data");
-
-    ui->buttonStreamingStart->setText("Stop");
-    ui->buttonStreamingPause->setEnabled(true);
-    ui->buttonStreamingPause->setChecked(false);
-    ui->comboStreaming->setEnabled(false);
-    ui->labelStreamingAnimation->setHidden(false);
-
-    // force start
-    on_buttonStreamingPause_toggled(false);
-    // this will force the update the max buffer size values
-    on_streamingSpinBox_valueChanged(ui->streamingSpinBox->value());
+    configureStartedPlugin(streamer);
   }
   else
   {
     QSignalBlocker block( ui->buttonStreamingStart );
     ui->buttonStreamingStart->setChecked(false);
     qDebug() << "Failed to launch the streamer";
-    _active_streamer_plugin = nullptr;
   }
 }
 
@@ -2329,16 +2320,30 @@ void MainWindow::on_deleteSerieFromGroup(std::string group_name )
   onDeleteMultipleCurves(names);
 }
 
-void MainWindow::on_started(const QString &plugin_name)
+void MainWindow::on_started(const QString &streamer_name)
 {
-  // Change the button only the the plugin matches the on 
-  // currently selected in the combo box
-  // signal is the one 
-  if ( ui->comboStreaming->currentText() != plugin_name) 
+  // This is only allowed if the plugin is the one selected in the combo box
+  if ( ui->comboStreaming->currentText() != streamer_name) 
   {
     return;
   }
-  startStreamingPlugin(plugin_name, true);
+
+  auto it = _data_streamer.find(streamer_name);
+  if (it == _data_streamer.end())
+  {
+    qDebug() << "Error. The streamer " << streamer_name << " is not loaded";
+    _active_streamer_plugin = nullptr;
+    return;
+  } 
+
+  DataStreamerPtr started_plugin = it->second;
+  if ( _active_streamer_plugin && (_active_streamer_plugin != started_plugin) )
+  {
+    _active_streamer_plugin->shutdown();
+    _active_streamer_plugin = nullptr;
+  }
+
+  configureStartedPlugin(started_plugin);
 }
 
 void MainWindow::on_streamingNotificationsChanged(int active_count)
