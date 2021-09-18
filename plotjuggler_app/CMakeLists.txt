@@ -6,6 +6,9 @@ include_directories( ./ ../  ../include )
 
 QT5_ADD_RESOURCES (RES_SRC  resource.qrc )
 
+# PJ_EXTRA_APP_RESOURCES may be used to compile in an additional (external) resource file
+QT5_ADD_RESOURCES (RES_SRC_EXTRA ${PJ_EXTRA_APP_RESOURCES} )
+
 QT5_WRAP_UI ( UI_SRC
     aboutdialog.ui
     mainwindow.ui
@@ -87,6 +90,7 @@ SET( PLOtJUGGLER_SRC
 add_executable(plotjuggler
     ${PLOtJUGGLER_SRC}
     ${RES_SRC}
+    ${RES_SRC_EXTRA}
     ${UI_SRC}
     ${BACKWARD_ENABLE} )
 

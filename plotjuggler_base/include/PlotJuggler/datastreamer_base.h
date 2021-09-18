@@ -8,6 +8,19 @@
 #include "PlotJuggler/messageparser_base.h"
 
 namespace PJ {
+/**
+ * @brief Marker inyterface indicating a DataStreamer wants access to the Manin memus.
+ *
+ * Must contain no state, only virtyal functions. 
+ */
+class PlotJugglerMenuModifier
+{
+public:
+ /**
+   * @brief provide an opportunity for the plugin to modify the Application Menus
+   */
+  virtual void updateMainWindowMenus(QMenu* menuFile, QMenu* menuTool, QMenu* menuHelp) = 0;
+};
 
 /**
  * @brief The DataStreamer base classm used to read streaming of data.

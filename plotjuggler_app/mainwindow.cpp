@@ -755,6 +755,13 @@ QStringList MainWindow::initializePlugins(QString directory_name)
                 this, &MainWindow::on_started );
         connect(streamer, &DataStreamer::notificationsChanged,
                 this, &MainWindow::on_streamingNotificationsChanged );
+
+        // Provide a way for streamers to add/remove items to the Application menus
+        PlotJugglerMenuModifier *menuModifier = dynamic_cast<PlotJugglerMenuModifier*>(streamer);
+        if ( menuModifier != nullptr )
+        {
+          menuModifier->updateMainWindowMenus(ui->menuFile, ui->menuTools, ui->menuHelp);
+        }
       }
       else if(toolbox)
       {

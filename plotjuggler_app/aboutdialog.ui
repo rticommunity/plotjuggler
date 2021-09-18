@@ -55,10 +55,6 @@
        <height>100</height>
       </size>
      </property>
-     <property name="styleSheet">
-      <string notr="true">background-color: rgb(255,255,255,0);
-border-color: rgb(255, 255, 255,0);</string>
-     </property>
      <property name="frameShape">
       <enum>QFrame::NoFrame</enum>
      </property>
@@ -91,10 +87,6 @@ p, li { white-space: pre-wrap; }
        <pointsize>16</pointsize>
       </font>
      </property>
-     <property name="styleSheet">
-      <string notr="true">background-color: rgb(255,255,255,0);
-border-color: rgb(255, 255, 255,0);</string>
-     </property>
      <property name="text">
       <string>version:</string>
      </property>
@@ -105,10 +97,6 @@ border-color: rgb(255, 255, 255,0);</string>
    </item>
    <item>
     <widget class="QTextBrowser" name="bodyTextBrowser">
-     <property name="styleSheet">
-      <string notr="true">background-color: rgb(255,255,255,0);
-border-color: rgb(255, 255, 255,0);</string>
-     </property>
      <property name="frameShape">
       <enum>QFrame::NoFrame</enum>
      </property>

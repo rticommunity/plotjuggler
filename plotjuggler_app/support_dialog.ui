@@ -31,9 +31,6 @@
   <property name="windowTitle">
    <string>Support</string>
   </property>
-  <property name="styleSheet">
-   <string notr="true">background: white</string>
-  </property>
   <layout class="QVBoxLayout" name="verticalLayout_2">
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
@@ -90,11 +87,11 @@ p, li { white-space: pre-wrap; }
 &lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Ubuntu'; font-size:11pt; font-weight:400; font-style:normal;&quot;&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Hi!&lt;/p&gt;
-&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;I am Davide, the creator of&lt;span style=&quot; font-weight:600;&quot;&gt; &lt;/span&gt;&lt;span style=&quot; font-weight:600; color:#ff00ff;&quot;&gt;Plot&lt;/span&gt;&lt;span style=&quot; font-weight:600; color:#0000ff;&quot;&gt;Juggler.&lt;/span&gt; I hope you find this software useful!&lt;/p&gt;
+&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;I am Davide, the creator of&lt;span style=&quot; font-weight:600;&quot;&gt; &lt;/span&gt;&lt;span style=&quot; font-weight:600; color:#ff00ff;&quot;&gt;Plot&lt;/span&gt;&lt;span style=&quot; font-weight:600; color:#1b72cf;&quot;&gt;Juggler.&lt;/span&gt; I hope you find this software useful!&lt;/p&gt;
 &lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;I have been developing PlotJuggler in my spare time since 2016,  because I wanted to build the best tool to visualize logs, traces and data.&lt;/p&gt;
-&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;If you are an individual, consider making a &lt;span style=&quot; font-weight:600;&quot;&gt;donation&lt;/span&gt; with &lt;a href=&quot;https://www.paypal.me/facontidavide&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;PayPal.&lt;/span&gt;&lt;/a&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;If you are an individual, consider making a &lt;span style=&quot; font-weight:600;&quot;&gt;donation&lt;/span&gt; with &lt;a href=&quot;https://www.paypal.me/facontidavide&quot;&gt;PayPal&lt;/a&gt;&lt;/p&gt;
 &lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;If you use PlotJuggler at &lt;span style=&quot; font-weight:600;&quot;&gt;work&lt;/span&gt;, your company can become a &lt;span style=&quot; font-weight:600;&quot;&gt;sponsor&lt;/span&gt; or support the development of a specific feature.&lt;/p&gt;
-&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;a href=&quot;mailto:davide.faconti@gmail.com&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0000ff;&quot;&gt;Contact me&lt;/span&gt;&lt;/a&gt; for more details.&lt;/p&gt;
+&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;a href=&quot;mailto:davide.faconti@gmail.com&quot;&gt;Contact me&lt;/a&gt; for more details.&lt;/p&gt;
 &lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt; &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="openExternalLinks">
