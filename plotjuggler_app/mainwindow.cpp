@@ -61,6 +61,9 @@
 // Handle things deprecated in version 5.15 so they don't produce warnings
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0))
   #define Qt_SplitEmptyPartsBehavior  Qt::SkipEmptyParts
+  // Not working as it should
+  // #define Qt_SplitEmptyPartsBehavior  Qt::SkipEmptyParts
+  #define Qt_SplitEmptyPartsBehavior  QString::SkipEmptyParts
   #define Qt_endl  Qt::endl
 #else
   #define Qt_SplitEmptyPartsBehavior  QString::SkipEmptyParts

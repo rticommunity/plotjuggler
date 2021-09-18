@@ -22,13 +22,6 @@
 #include "nlohmann_parsers.h"
 #include "new_release_dialog.h"
 
-// Handle things deprecated in version 5.15 so they don't produce warnings
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0))
-  #define Qt_SplitEmptyPartsBehavior  Qt::SkipEmptyParts
-#else
-  #define Qt_SplitEmptyPartsBehavior  QString::SkipEmptyParts
-#endif
-
 static QString VERSION_STRING = QString("%1.%2.%3").arg(PJ_MAJOR_VERSION).arg(PJ_MINOR_VERSION).arg(PJ_PATCH_VERSION);
 
 inline int GetVersionNumber(QString str)
@@ -98,7 +91,7 @@ QPixmap getFunnySplashscreen()
 std::pair<int,char**> MergeArguments(int argc, char* argv[])
 {
   #ifdef PJ_DEFAULT_ARGS
-  auto default_cmdline_args = QString( PJ_DEFAULT_ARGS ).split(" ", Qt_SplitEmptyPartsBehavior);
+  auto default_cmdline_args = QString( PJ_DEFAULT_ARGS ).split(" ", QString::SkipEmptyParts);
   int new_argc = argc + default_cmdline_args.size();
   static char *new_argv[100];
 
