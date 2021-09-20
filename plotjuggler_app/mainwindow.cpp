@@ -60,13 +60,8 @@
 
 // Handle things deprecated in version 5.15 so they don't produce warnings
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0))
-  #define Qt_SplitEmptyPartsBehavior  Qt::SkipEmptyParts
-  // Not working as it should
-  // #define Qt_SplitEmptyPartsBehavior  Qt::SkipEmptyParts
-  #define Qt_SplitEmptyPartsBehavior  QString::SkipEmptyParts
   #define Qt_endl  Qt::endl
 #else
-  #define Qt_SplitEmptyPartsBehavior  QString::SkipEmptyParts
   #define Qt_endl  endl
 #endif
 
@@ -95,7 +90,7 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
 
   if ( commandline_parser.isSet("enabled_plugins"))
   {
-    _enabled_plugins  = commandline_parser.value("enabled_plugins").split(";", Qt_SplitEmptyPartsBehavior);
+    _enabled_plugins  = commandline_parser.value("enabled_plugins").split(";", QString::SkipEmptyParts);
     // Treat the command-line parameter  '--enabled_plugins *' to mean all plugings are enabled
     if (  (_enabled_plugins.size() == 1) && (_enabled_plugins.contains("*")) )
     {
@@ -104,7 +99,7 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
   }
   if ( commandline_parser.isSet("disabled_plugins"))
   {
-    _disabled_plugins = commandline_parser.value("disabled_plugins").split(";", Qt_SplitEmptyPartsBehavior);
+    _disabled_plugins = commandline_parser.value("disabled_plugins").split(";", QString::SkipEmptyParts);
   }
 
   _curvelist_widget = new CurveListPanel(_mapped_plot_data, _transform_functions, this);
@@ -236,7 +231,7 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
   initializeActions();
 
   //------------ Load plugins -------------
-  auto plugin_extra_folders = commandline_parser.value("plugin_folders").split(";", Qt_SplitEmptyPartsBehavior);
+  auto plugin_extra_folders = commandline_parser.value("plugin_folders").split(";", QString::SkipEmptyParts);
 
   _default_streamer = commandline_parser.value("start_streamer");
 
@@ -1898,7 +1893,7 @@ bool MainWindow::loadLayoutFromFile(QString filename)
 
     QDomElement datasources_elem = datafile_elem.firstChildElement("selected_datasources");
     QString topics_list = datasources_elem.attribute("value");
-    info.selected_datasources = topics_list.split(";", Qt_SplitEmptyPartsBehavior);
+    info.selected_datasources = topics_list.split(";", QString::SkipEmptyParts);
 
     auto plugin_elem = datafile_elem.firstChildElement("plugin");
     info.plugin_config.appendChild(info.plugin_config.importNode(plugin_elem, true));
