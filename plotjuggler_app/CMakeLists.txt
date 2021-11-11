@@ -86,13 +86,47 @@ SET( PLOtJUGGLER_SRC
     nlohmann_parsers.cpp
     )
 
+# This option enables the creation of a *.app MacOS application
+if(PJ_ENABLE_MAC_APP)
+    if (NOT APPLE)
+        message(FATAL_ERROR
+            "The option PJ_ENABLE_MAC_APP can only be set in MacOS systems")
+    endif()
 
-add_executable(plotjuggler
-    ${PLOtJUGGLER_SRC}
-    ${RES_SRC}
-    ${RES_SRC_EXTRA}
-    ${UI_SRC}
-    ${BACKWARD_ENABLE} )
+    set(ICON_NAME plotjuggler.icns)
+    set(MAC_ICON_SRC ${CMAKE_CURRENT_SOURCE_DIR}/resources/${ICON_NAME})
+
+    if(NOT DEFINED MAC_PLIST)
+        set(MAC_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/resources/macapp/plotjuggler.plist)
+    endif()
+
+    set_source_files_properties(${MAC_ICON_SRC}
+        PROPERTIES
+            MACOSX_PACKAGE_LOCATION "Resources")
+    add_executable(plotjuggler MACOSX_BUNDLE
+        ${MAC_ICON_SRC}
+        ${PLOtJUGGLER_SRC}
+        ${RES_SRC}
+        ${RES_SRC_EXTRA}
+        ${UI_SRC}
+        ${BACKWARD_ENABLE})
+
+    set_target_properties(plotjuggler
+        PROPERTIES
+            BUNDLE True
+            MACOSX_BUNDLE_GUI_IDENTIFIER io.plotjuggler.PlotJuggler
+            MACOSX_BUNDLE_BUNDLE_NAME plotjuggler
+            MACOSX_BUNDLE_INFO_PLIST ${MAC_PLIST}
+            MACOSX_BUNDLE_ICON_FILE ${ICON_NAME}
+    )
+else()
+    add_executable(plotjuggler
+        ${PLOtJUGGLER_SRC}
+        ${RES_SRC}
+        ${RES_SRC_EXTRA}
+        ${UI_SRC}
+        ${BACKWARD_ENABLE} )
+endif()
 
 if (NOT WIN32)
     add_backward(plotjuggler)
