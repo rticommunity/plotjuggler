@@ -96,8 +96,10 @@ if(PJ_ENABLE_MAC_APP)
     set(ICON_NAME plotjuggler.icns)
     set(MAC_ICON_SRC ${CMAKE_CURRENT_SOURCE_DIR}/resources/${ICON_NAME})
 
-    if(NOT DEFINED MAC_PLIST)
-        set(MAC_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/resources/macapp/plotjuggler.plist)
+    # By providing a value on PLOTJUGGLER_MAC_PLIST, we can modify
+    # the plist
+    if(NOT DEFINED PLOTJUGGLER_MAC_PLIST)
+        set(PLOTJUGGLER_MAC_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/resources/macapp/plotjuggler.plist)
     endif()
 
     set_source_files_properties(${MAC_ICON_SRC}
@@ -116,7 +118,7 @@ if(PJ_ENABLE_MAC_APP)
             BUNDLE True
             MACOSX_BUNDLE_GUI_IDENTIFIER io.plotjuggler.PlotJuggler
             MACOSX_BUNDLE_BUNDLE_NAME plotjuggler
-            MACOSX_BUNDLE_INFO_PLIST ${MAC_PLIST}
+            MACOSX_BUNDLE_INFO_PLIST ${PLOTJUGGLER_MAC_PLIST}
             MACOSX_BUNDLE_ICON_FILE ${ICON_NAME}
     )
 else()
