@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<key>CFBundlePackageType</key>
+		<string>APPL</string>
+		<key>CFBundleInfoDictionaryVersion</key>
+		<string>3.1.0</string>
+		<key>CFBundleName</key>
+		<string>PlotJuggler</string>
+		<key>CFBundleExecutable</key>
+		<string>MacOS/plotjuggler</string>
+		<key>CFBundleIdentifier</key>
+		<string>io.plotjuggler.PlotJuggler</string>
+		<key>CFBundleVersion</key>
+		<string>3.1.0</string>
+		<key>CFBundleGetInfoString</key>
+		<string>PlotJuggler by Davide Faconti</string>
+		<key>CFBundleShortVersionString</key>
+		<string>3.1.0</string>
+		<key>CFBundleIconFile</key>
+		<string>plotjuggler</string>
+	</dict>
+</plist>
