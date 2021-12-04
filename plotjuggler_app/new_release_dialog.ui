@@ -53,7 +53,7 @@
       <string/>
      </property>
      <property name="pixmap">
-      <pixmap>:/resources/update_plotjuggler.jpg</pixmap>
+      <pixmap>:/resources/skin/update_plotjuggler.jpg</pixmap>
      </property>
     </widget>
    </item>

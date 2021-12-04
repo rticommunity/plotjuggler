@@ -187,7 +187,6 @@
         <file>resources/svg/zoom_horizontal.svg</file>
         <file>resources/svg/zoom_max.svg</file>
         <file>resources/svg/zoom_vertical.svg</file>
-        <file>resources/update_plotjuggler.jpg</file>
         <file>resources/memes/meme_55.jpg</file>
         <file>resources/memes/meme_56.jpg</file>
         <file>resources/memes/meme_57.jpg</file>
@@ -279,6 +278,7 @@
         <file>resources/skin/about_window_body.html</file>
         <file>resources/skin/about_window_title.html</file>
         <file>resources/skin/mainwindow_title.txt</file>
+        <file>resources/skin/update_plotjuggler.jpg</file>
         <file>resources/svg/alarm-bell.svg</file>
         <file>resources/svg/alarm-bell-active.svg</file>
     </qresource>

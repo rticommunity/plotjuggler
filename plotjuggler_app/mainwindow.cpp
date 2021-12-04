@@ -107,7 +107,7 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
   ui->setupUi(this);
 
   // setupUi() sets the windowTitle so the skin-based setting must be done after
-    _skin_path ="://resources/skin";
+  _skin_path ="://resources/skin";
   if( commandline_parser.isSet("skin_path") )
   {
     QDir path( commandline_parser.value("skin_path") );

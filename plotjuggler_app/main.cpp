@@ -37,7 +37,7 @@ inline int GetVersionNumber(QString str)
   return major * 10000 + minor * 100 + patch;
 }
 
-void OpenNewReleaseDialog(QNetworkReply* reply)
+void OpenNewReleaseDialog(QNetworkReply* reply, QString pixmapfile)
 {
   if (reply->error())
   {
@@ -55,9 +55,12 @@ void OpenNewReleaseDialog(QNetworkReply* reply)
   int dontshow_number = GetVersionNumber(dont_show);
   int current_number = GetVersionNumber(VERSION_STRING);
 
+  qDebug() << "OpenNewReleaseDialog: current_number: " << current_number << " online_number: " << online_number;
+  // (":/resources/update_plotjuggler.jpg")));
+  // QString pixmapfile = QString(":/plotjuggler-rti-plugin/skin/update_pj_rti_edition.png");
   if (online_number > current_number && online_number > dontshow_number)
   {
-    NewReleaseDialog* dialog = new NewReleaseDialog(nullptr, tag_name, name, url);
+    NewReleaseDialog* dialog = new NewReleaseDialog(nullptr, tag_name, name, url, pixmapfile);
     dialog->show();
   }
 }
@@ -252,11 +255,43 @@ int main(int argc, char* argv[])
   QIcon app_icon("://resources/plotjuggler.svg");
   QApplication::setWindowIcon(app_icon);
 
+  QString latest_release_url        = "https://api.github.com/repos/facontidavide/PlotJuggler/releases/latest";
+  QString update_plotjuggler_pixmap = ":/resources/skin/update_plotjuggler.jpg";
+
+  // Skin may modify the URL containing the latest release information and "update"" pixmap
+  if ( parser.isSet(skin_path_option) )
+  {
+    QDir path( parser.value(skin_path_option) );
+    QFile latest_release_url_file = path.filePath("latest_release_url.txt");
+    if ( latest_release_url_file.exists() ) {
+      if ( !latest_release_url_file.open( QIODevice::ReadOnly | QIODevice::Text)) {
+          qDebug() << "Latest release filepath [" <<  latest_release_url_file.fileName() << "] not found";
+          return -1;
+      }
+      QTextStream in(&latest_release_url_file);
+      latest_release_url = in.readLine();
+    }
+
+    QFile update_plotjuggler_pixmap_file = path.filePath("update_plotjuggler.jpg");
+    if ( update_plotjuggler_pixmap_file.exists() ) {
+      if ( !update_plotjuggler_pixmap_file.open( QIODevice::ReadOnly | QIODevice::Text)) {
+          qDebug() << "Update PlotJuggler image [" <<  update_plotjuggler_pixmap_file.fileName() << "] not found";
+          return -1;
+      }  
+      update_plotjuggler_pixmap = update_plotjuggler_pixmap_file.fileName();  
+    }
+  }
+
+  qDebug() << "Latest Release URL: " <<  latest_release_url;
+  qDebug() << "Update PlotJuggler pixmap file: " <<  update_plotjuggler_pixmap;
+
   QNetworkAccessManager manager;
-  QObject::connect(&manager, &QNetworkAccessManager::finished, OpenNewReleaseDialog);
+  
+  QObject::connect(&manager, &QNetworkAccessManager::finished, 
+    [=](QNetworkReply* reply) { OpenNewReleaseDialog(reply, update_plotjuggler_pixmap); } );
 
   QNetworkRequest request;
-  request.setUrl(QUrl("https://api.github.com/repos/facontidavide/PlotJuggler/releases/latest"));
+  request.setUrl(QUrl(latest_release_url));
   manager.get(request);
 
 
@@ -286,6 +321,7 @@ int main(int argc, char* argv[])
       QDir path( parser.value(skin_path_option ) );
       QFile splash = path.filePath( "pj_splashscreen.png");
       if( splash.exists() ){
+        qDebug() << "main.cpp::main() Splash Screen: " << splash.fileName();
         main_pixmap = QPixmap( splash.fileName() );
       }
     }

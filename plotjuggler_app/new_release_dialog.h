@@ -13,7 +13,7 @@ class NewReleaseDialog : public QDialog
   Q_OBJECT
 
 public:
-  NewReleaseDialog(QWidget* parent, QString release, QString title, QString url);
+  NewReleaseDialog(QWidget* parent, QString release, QString title, QString url, QString pixmap_file);
   ~NewReleaseDialog();
 
 private:

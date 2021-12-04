@@ -5,7 +5,7 @@
 #include <QUrl>
 #include <QDialogButtonBox>
 
-NewReleaseDialog::NewReleaseDialog(QWidget* parent, QString release, QString title, QString url)
+NewReleaseDialog::NewReleaseDialog(QWidget* parent, QString release, QString title, QString url, QString pixmap_file)
   : QDialog(parent), ui(new Ui::NewReleaseDialog)
 {
   ui->setupUi(this);
@@ -23,6 +23,11 @@ NewReleaseDialog::NewReleaseDialog(QWidget* parent, QString release, QString tit
 
   ui->labelRelease->setText(release);
   ui->labelTitle->setText(title);
+
+  // If pixmap file is null then use the one set in the new_release_dialog.ui
+  if ( pixmap_file.isNull() == false ) {
+    ui->label_3->setPixmap(QPixmap(pixmap_file));
+  }
 }
 
 NewReleaseDialog::~NewReleaseDialog()
