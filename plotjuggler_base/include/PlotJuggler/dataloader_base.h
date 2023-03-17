@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #ifndef DATALOAD_TEMPLATE_H
 #define DATALOAD_TEMPLATE_H
 
@@ -8,8 +14,8 @@
 #include "PlotJuggler/pj_plugin.h"
 #include "PlotJuggler/messageparser_base.h"
 
-namespace PJ {
-
+namespace PJ
+{
 struct FileLoadInfo
 {
   /// name of the file to open
@@ -38,12 +44,26 @@ public:
   /// Provide a list of file extensions that this plugin can open
   virtual const std::vector<const char*>& compatibleFileExtensions() const = 0;
 
-  virtual bool readDataFromFile(FileLoadInfo* fileload_info, PlotDataMapRef& destination) = 0;
+  virtual bool readDataFromFile(FileLoadInfo* fileload_info,
+                                PlotDataMapRef& destination) = 0;
+
+  void setParserFactories(ParserFactories *parsers)
+  {
+    _parser_factories = parsers;
+  }
+
+  const ParserFactories* parserFactories() const
+  {
+    return _parser_factories;
+  }
+
+private:
+  ParserFactories* _parser_factories = nullptr;
 };
 
 using DataLoaderPtr = std::shared_ptr<DataLoader>;
 
-}
+}  // namespace PJ
 
 QT_BEGIN_NAMESPACE
 #define DataRead_iid "facontidavide.PlotJuggler3.DataLoader"

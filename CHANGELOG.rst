@@ -2,55 +2,273 @@
 Changelog for package plotjuggler
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.6.1 (2022-12-18)
+------------------
+* apply changes suggested in `#767 <https://github.com/facontidavide/PlotJuggler/issues/767>`_
+* fix parsing of custom types added multiple times in messages (`#769 <https://github.com/facontidavide/PlotJuggler/issues/769>`_)
+* ZMQ: Add topics filtering (`#730 <https://github.com/facontidavide/PlotJuggler/issues/730>`_)
+* Add CSV loader date-time format help dialog (`#731 <https://github.com/facontidavide/PlotJuggler/issues/731>`_)
+* Set MQTT topics list to be multi-selectable (`#745 <https://github.com/facontidavide/PlotJuggler/issues/745>`_)
+* Always use topic names for creating MQTT parsers (`#746 <https://github.com/facontidavide/PlotJuggler/issues/746>`_)
+* fix typo (`#770 <https://github.com/facontidavide/PlotJuggler/issues/770>`_)
+* Fix/add other dds vendors (`#763 <https://github.com/facontidavide/PlotJuggler/issues/763>`_)
+* Add option to build plotjuggler_base to shared library (`#757 <https://github.com/facontidavide/PlotJuggler/issues/757>`_)
+* Add a new meme with The Rock (`#751 <https://github.com/facontidavide/PlotJuggler/issues/751>`_)
+* Add precision to CSV export to handle geocoordinates (`#753 <https://github.com/facontidavide/PlotJuggler/issues/753>`_)
+* compile: add cmake to brew install (`#742 <https://github.com/facontidavide/PlotJuggler/issues/742>`_)
+* Add MIT license notice to QCodeEditor dddition (`#733 <https://github.com/facontidavide/PlotJuggler/issues/733>`_)
+  Added per https://github.com/facontidavide/PlotJuggler/issues/732
+* Fix multi-plugin selection (`#739 <https://github.com/facontidavide/PlotJuggler/issues/739>`_)
+  Broken in `#726 <https://github.com/facontidavide/PlotJuggler/issues/726>`_. If all plugins are enabled, then opening a file supported by multiple plugins does not work.
+* - Add drag n drop (`#726 <https://github.com/facontidavide/PlotJuggler/issues/726>`_)
+  - Ignore VSCode and OS X files
+* readme: add details about default snap command (`#727 <https://github.com/facontidavide/PlotJuggler/issues/727>`_)
+* Add mac compilation section (`#725 <https://github.com/facontidavide/PlotJuggler/issues/725>`_)
+* Update README.md (`#723 <https://github.com/facontidavide/PlotJuggler/issues/723>`_)
+  minor typos
+* Update README.md
+* Update COMPILE.md
+* Contributors: Andrew Van Overloop, Bartimaeus-, Bonkura, Davide Faconti, Guillaume Beuzeboc, Jeff Ithier, Jeremie Deray, Mark Cutler, Orhan G. Hafif, Romain Reignier, Zach Davis
+
+3.6.0 (2022-08-13)
+------------------
+* More memes
+* Refactoring of the MessageParser plugins 
+* Mcap support (`#722 <https://github.com/facontidavide/PlotJuggler/issues/722>`_)
+* Improve CSV loader error handling (`#721 <https://github.com/facontidavide/PlotJuggler/issues/721>`_)
+* Fix plotwidget drag and drop bug (Issue `#716 <https://github.com/facontidavide/PlotJuggler/issues/716>`_) (`#717 <https://github.com/facontidavide/PlotJuggler/issues/717>`_)
+* fix(snap): remove yaml grade (`#718 <https://github.com/facontidavide/PlotJuggler/issues/718>`_)
+  grade is set from the part
+  YAML grade has priority over the programmed one so we remove it
+* Contributors: Bartimaeus-, Davide Faconti, Guillaume Beuzeboc
+
+3.5.2 (2022-08-05)
+------------------
+* fix issue `#642 <https://github.com/facontidavide/PlotJuggler/issues/642>`_
+* fix FFT toolbox
+* Add options for enabling/disabling autozoom in preferences (`#704 <https://github.com/facontidavide/PlotJuggler/issues/704>`_)
+* add support for custom window titles (`#715 <https://github.com/facontidavide/PlotJuggler/issues/715>`_)
+* Fix/snap rosbag (`#714 <https://github.com/facontidavide/PlotJuggler/issues/714>`_)
+* fix mosquitto build in linux
+* Better cmake (`#710 <https://github.com/facontidavide/PlotJuggler/issues/710>`_)
+* fix `#707 <https://github.com/facontidavide/PlotJuggler/issues/707>`_
+* better installation instructions
+* fix(snap): reapply changes remove by the merge of main (`#703 <https://github.com/facontidavide/PlotJuggler/issues/703>`_)
+* save ColorMaps in layout
+* Contributors: Bartimaeus-, Davide Faconti, Guillaume Beuzeboc, grekiki
+
+3.5.1 (2022-07-25)
+------------------
+* Dev/ros1 ros2 snap (`#698 <https://github.com/facontidavide/PlotJuggler/issues/698>`_)
+* update nlohmann json to fix `#640 <https://github.com/facontidavide/PlotJuggler/issues/640>`_
+* should prevent error `#696 <https://github.com/facontidavide/PlotJuggler/issues/696>`_
+* Merge branch 'improved_zoomout' into main
+* cleanup after `#702 <https://github.com/facontidavide/PlotJuggler/issues/702>`_
+* Statistics dialog improvements and bug fixes (`#702 <https://github.com/facontidavide/PlotJuggler/issues/702>`_)
+* Include std::thread instead of QThread, since it is being utilized in the mqtt plugin instead of QThread. (`#700 <https://github.com/facontidavide/PlotJuggler/issues/700>`_)
+* fix zmq compilation
+* cherry picking from `#698 <https://github.com/facontidavide/PlotJuggler/issues/698>`_
+* increase playback step precision (`#692 <https://github.com/facontidavide/PlotJuggler/issues/692>`_)
+* Fix typo in ColorMap warning (`#693 <https://github.com/facontidavide/PlotJuggler/issues/693>`_)
+* Set buttonBackground icon in .ui file (`#694 <https://github.com/facontidavide/PlotJuggler/issues/694>`_)
+* Update README.md
+* Fix `#697 <https://github.com/facontidavide/PlotJuggler/issues/697>`_
+* update sol2 and fix `#687 <https://github.com/facontidavide/PlotJuggler/issues/687>`_
+* try to improve the linked zoomout
+* Contributors: Bartimaeus-, Davide Faconti, Guillaume Beuzeboc, Hugal31, ozzdemir
+
+3.5.0 (2022-07-12)
+------------------
+* license changed to MPL 2.0
+* Macos ci (`#685 <https://github.com/facontidavide/PlotJuggler/issues/685>`_)
+* Add CSV table preview and CSV highlighting (`#680 <https://github.com/facontidavide/PlotJuggler/issues/680>`_)
+  * Add CSV table preview and CSV highlighting
+  * add toggles for enabling CSV table view and syntax highlighting
+* Fix start/end time bug in CSV Exporter (`#682 <https://github.com/facontidavide/PlotJuggler/issues/682>`_)
+* Add tooltips to CSV publisher buttons (`#683 <https://github.com/facontidavide/PlotJuggler/issues/683>`_)
+  -Add tooltips to the buttons that set the start/end time based on vertical time tracker position
+  -add missing space in text ("timerange" to "time range")
+* Fix `#415 <https://github.com/facontidavide/PlotJuggler/issues/415>`_
+* add statistics
+* Add background editor
+* fix crash in Parquet plugin
+* Add line numbers to csv loader (`#679 <https://github.com/facontidavide/PlotJuggler/issues/679>`_)
+* Fix type-o in reactive script editor (`#678 <https://github.com/facontidavide/PlotJuggler/issues/678>`_)
+  missing "r" in "ScatterXY"
+* Contributors: Bartimaeus-, Davide Faconti
+
+3.4.5 (2022-06-29)
+------------------
+* fix compilation
+* add QCodeEditor
+* CI: cmake ubuntu/Windows
+* Fix CSV generated time axis. (`#666 <https://github.com/facontidavide/PlotJuggler/issues/666>`_)
+  Previously the CSV dataload plugin was not saving the correct XML state
+  when a generated time axis was used.
+* Added support for converted int types (`#673 <https://github.com/facontidavide/PlotJuggler/issues/673>`_)
+  * Added support for converted int types
+  * Added fallback for int32 and int64
+  Co-authored-by: Rano Veder <r.veder@primevision.com>
+* Add tooltip to the zoom out button (`#670 <https://github.com/facontidavide/PlotJuggler/issues/670>`_)
+* PlotJuggler will generate its own cmake target
+* Parquet plugin (`#664 <https://github.com/facontidavide/PlotJuggler/issues/664>`_)
+* fix Cancel button in CSV loader (`#659 <https://github.com/facontidavide/PlotJuggler/issues/659>`_)
+* Make tutorial link open in browser when clicked (`#660 <https://github.com/facontidavide/PlotJuggler/issues/660>`_)
+  Similar to https://github.com/facontidavide/PlotJuggler/pull/658 but applied to the tutorial link in the reactive lua editor
+* accept white lines in CSV
+* Update README.md (`#661 <https://github.com/facontidavide/PlotJuggler/issues/661>`_)
+* Make link open in browser when clicked (`#658 <https://github.com/facontidavide/PlotJuggler/issues/658>`_)
+  Set openExternalLinks property of label_4 to true to allow the hyperlink to open in a web browser when clicked
+* Fix  `#655 <https://github.com/facontidavide/PlotJuggler/issues/655>`_. Add autoZoom to transform dialog
+* Rememvber CSV time column. Cherry picking from `#657 <https://github.com/facontidavide/PlotJuggler/issues/657>`_.
+* fix `#650 <https://github.com/facontidavide/PlotJuggler/issues/650>`_
+* Contributors: Andrew Goessling, Bartimaeus-, Davide Faconti, Konstantinos Lyrakis, Rano Veder, Zach Davis
+
+3.4.4 (2022-05-15)
+------------------
+* fix issue `#561 <https://github.com/facontidavide/PlotJuggler/issues/561>`_
+* add STATUS to CmakeLists.txt message() to avoid 'message called with incorrect number of arguments' (`#649 <https://github.com/facontidavide/PlotJuggler/issues/649>`_)
+  cmake 3.22.1 errors on this
+* Passing CI on ROS2 Rolling (`#629 <https://github.com/facontidavide/PlotJuggler/issues/629>`_)
+  * fix ament-index-cpp dependency on ubuntu jammy
+  * add rolling ci
+* Modify install command and make it easier to install (`#620 <https://github.com/facontidavide/PlotJuggler/issues/620>`_)
+* Contributors: Davide Faconti, Kenji Brameld, Krishna, Lucas Walter
+
+3.4.3 (2022-03-06)
+------------------
+* Apply changes to reactive Scripts
+* improve reactive Scripts
+* clear selections when CustomSeries is created
+* save batch function settings
+* cleaning up `#601 <https://github.com/facontidavide/PlotJuggler/issues/601>`_
+* Timestampfield (`#601 <https://github.com/facontidavide/PlotJuggler/issues/601>`_)
+* add new batch editor
+* check validity of the Lua function
+* consolidate tree view
+* add missing files and use CurveTree
+* multifile prefix
+* ReactiveLuaFunction cleanup
+* adding absolute transform
+* small UI fix
+* Contributors: Davide Faconti, ngpbach
+
+3.4.2 (2022-02-12)
+------------------
+* delete orhphaned transforms
+* bug fix that cause crash
+* fix error `#603 <https://github.com/facontidavide/PlotJuggler/issues/603>`_
+* Fix `#594 <https://github.com/facontidavide/PlotJuggler/issues/594>`_
+* Contributors: Davide Faconti
+
+3.4.1 (2022-02-06)
+------------------
+* add flip axis
+* fix zoom in icon
+* Fix typo in toolbox Lua (`#598 <https://github.com/facontidavide/PlotJuggler/issues/598>`_)
+* Fix MutableTimeseries shadowed by MutableScatterXY (`#597 <https://github.com/facontidavide/PlotJuggler/issues/597>`_)
+  * Fix MutableTimeseries shadowed by MutableScatterXY
+  * add math library
+  Co-authored-by: Simon CHANU <simon.chanu@cmdl.pro>
+* MQTT upgraded
+* Update README.md
+* Installer and readme updates
+* Contributors: Davide Faconti, SebasAlmagro, Simon CHANU
+
+3.4.0 (2022-01-29)
+------------------
+* fix `#585 <https://github.com/facontidavide/PlotJuggler/issues/585>`_
+* fix `#560 <https://github.com/facontidavide/PlotJuggler/issues/560>`_
+* fix `#575 <https://github.com/facontidavide/PlotJuggler/issues/575>`_
+* Reactive scripts (`#589 <https://github.com/facontidavide/PlotJuggler/issues/589>`_)
+* Fix Quaternion toolbox, issue `#587 <https://github.com/facontidavide/PlotJuggler/issues/587>`_
+* fix double delete
+* fix memory leaks `#582 <https://github.com/facontidavide/PlotJuggler/issues/582>`_
+* Contributors: Davide Faconti
+
+3.3.5 (2022-01-04)
+------------------
+* fix zoom issue when toggling T_offset
+* cosmetic changes
+* show missing curves in error dialog (`#579 <https://github.com/facontidavide/PlotJuggler/issues/579>`_)
+* fix `#550 <https://github.com/facontidavide/PlotJuggler/issues/550>`_
+* Contributors: Adeeb Shihadeh, Davide Faconti
+
+3.3.4 (2021-12-28)
+------------------
+* Video plugin (`#574 <https://github.com/facontidavide/PlotJuggler/issues/574>`_)
+* gitignore *.swp files (`#569 <https://github.com/facontidavide/PlotJuggler/issues/569>`_)
+* Added libprotoc-dev to the apt install targets (`#573 <https://github.com/facontidavide/PlotJuggler/issues/573>`_)
+* turn on Sol3 safety flag
+* trying to solve reported issue with Lua
+* add fields that were not set in Protobuf
+* Protobuf update (`#568 <https://github.com/facontidavide/PlotJuggler/issues/568>`_)
+* add zoomOut after loadDataFile
+* Protobuf options refactored
+* changed the protobuf implementation to deal with dependencies
+* Protobuf parser and MQTT plugins
+* Merge pull request `#531 <https://github.com/facontidavide/PlotJuggler/issues/531>`_ from erickisos/fix/517
+  Homebrew path added into CMakeLists `#517 <https://github.com/facontidavide/PlotJuggler/issues/517>`_
+* LUA version updated
+* fix dependency between transformed series
+* fix issue `#557 <https://github.com/facontidavide/PlotJuggler/issues/557>`_
+* Homebrew path added into CMakeLists
+* Contributors: Adeeb Shihadeh, Davide Faconti, Erick G. Islas-Osuna, Miklós Márton
+
+3.3.3 (2021-10-30)
+------------------
+* Fix critical bug when loading a file twice
+* change order of removal
+* fix crash when one of the source of XY is deleted
+* fix issue `#549 <https://github.com/facontidavide/PlotJuggler/issues/549>`_ (comma decima separator)
+* Fix issue `#545 <https://github.com/facontidavide/PlotJuggler/issues/545>`_
+* Contributors: Davide Faconti
+
+3.3.2 (2021-10-21)
+------------------
+* don't add the prefix. Checkbox added
+* bug fix when accidentally merging datafiles
+* clang-format
+* Contributors: Davide Faconti
+
+3.3.1 (2021-10-04)
+------------------
+* fix `#527 <https://github.com/facontidavide/PlotJuggler/issues/527>`_
+* avoid shared libraries in libkissFFT
+* Fix `#524 <https://github.com/facontidavide/PlotJuggler/issues/524>`_ and `#529 <https://github.com/facontidavide/PlotJuggler/issues/529>`_
+* Fix bug with Outlier Removal (`#532 <https://github.com/facontidavide/PlotJuggler/issues/532>`_)
+* minor changes
+* Implement Moving RMS filter `#510 <https://github.com/facontidavide/PlotJuggler/issues/510>`_
+* Fix issue `#516 <https://github.com/facontidavide/PlotJuggler/issues/516>`_
+  - Don't show more than once "Do you want to delete old data" when
+  loading multiple files.
+  - Correctly clean all the data, including _loaded_datafiles
+* Update README.md
+* Contributors: Davide Faconti
+
 3.3.0 (2021-09-07)
 ------------------
 * add "start_streamer" option
-* MacOS compilation and improvements to dark mode
 * Support MacOS and Dark Mode
-* add string visualization to CSV
 * custom SplitLine function in CSV. Fix `#509 <https://github.com/facontidavide/PlotJuggler/issues/509>`_
 * fix issue  `#507 <https://github.com/facontidavide/PlotJuggler/issues/507>`_
-* Save date format string in CSV
 * New CSV plugin
 * Back to static libraries ( `#507 <https://github.com/facontidavide/PlotJuggler/issues/507>`_)
-* Merge branch 'main' of github.com:facontidavide/PlotJuggler into main
-* Enhanced processing of default commandline arguments
-* build plugin as submodule of PlotJuggler
-* improved merging of default args and command-line args
 * Fixed wrong slot name on PreferecesDialog and moved skin-based setting of MainWindowTitle after the setupUi() call
 * fix typo in preferences dialog
 * add notifications from Streaming plugins (`#489 <https://github.com/facontidavide/PlotJuggler/issues/489>`_)
 * cherry picking features from `#489 <https://github.com/facontidavide/PlotJuggler/issues/489>`_
   - new options [enabled_plugins] and [disabled_plugins]
   - new option [skin_path]
-* fixes
-* FFT toolbox will support multiple curves
-* fix install paths of plotjuggler_qwt
-* crash fix
 * remove potential issue with TransformFunction::reset
-* Merge pull request `#490 <https://github.com/facontidavide/PlotJuggler/issues/490>`_ from facontidavide/3.3
-  3.3
 * remove .appveyor.yml
 * prefer the PlotAttribute enum instead of string
 * add changes similar to `#424 <https://github.com/facontidavide/PlotJuggler/issues/424>`_
-* fixes
-* FIX TTF and style
-* compilation fix
-* FFT update
-* Merge branch '3.3' of github.com:facontidavide/PlotJuggler into 3.3
-* FFT WIP
-* big work with FFT and PlotWidgetBase refactoring
-* fix export plotjuggler_qwt
-* Merge branch '3.3' of github.com:facontidavide/PlotJuggler into 3.3
-* revert change
-* fixes
-* ToolboxQuaternion works, base library refactored with PlotWidgetBase
-* WIP
-* WIP
-* toolbox WIP
+* Fast Fourier Transform plugin added
+* ToolboxQuaternion added
+* toolbox plugins introduced
 * add latest fmt
 * unified TransformFunction
-* WIP
 * change name of Transforms plugins
 * Contributors: Davide Faconti, GerardoPardo, myd7349
 

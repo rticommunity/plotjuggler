@@ -23,11 +23,16 @@
 #include <QMimeData>
 #include <QTableWidgetItem>
 #include <QTimer>
+#include <QListWidget>
+#include <QListWidgetItem>
 #include <QSyntaxHighlighter>
+
+#include "QLuaHighlighter"
 
 #include "lua_custom_function.h"
 #include "PlotJuggler/svg_util.h"
 #include "ui_function_editor_help.h"
+#include "stylesheet.h"
 
 void FunctionEditorWidget::on_stylesheetChanged(QString theme)
 {
@@ -35,10 +40,18 @@ void FunctionEditorWidget::on_stylesheetChanged(QString theme)
   ui->buttonLoadFunctions->setIcon(LoadSvg(":/resources/svg/import.svg", theme));
   ui->buttonSaveFunctions->setIcon(LoadSvg(":/resources/svg/export.svg", theme));
   ui->buttonSaveCurrent->setIcon(LoadSvg(":/resources/svg/save.svg", theme));
+
+  auto style = GetLuaSyntaxStyle(theme);
+
+  ui->globalVarsText->setSyntaxStyle(style);
+  ui->globalVarsTextBatch->setSyntaxStyle(style);
+
+  ui->functionText->setSyntaxStyle(style);
+  ui->functionTextBatch->setSyntaxStyle(style);
 }
 
 FunctionEditorWidget::FunctionEditorWidget(PlotDataMapRef& plotMapData,
-                                           const TransformsMap &mapped_custom_plots,
+                                           const TransformsMap& mapped_custom_plots,
                                            QWidget* parent)
   : QWidget(parent)
   , _plot_map_data(plotMapData)
@@ -49,6 +62,21 @@ FunctionEditorWidget::FunctionEditorWidget(PlotDataMapRef& plotMapData,
 {
   ui->setupUi(this);
 
+  ui->globalVarsText->setHighlighter(new QLuaHighlighter);
+  ui->globalVarsTextBatch->setHighlighter(new QLuaHighlighter);
+
+  ui->functionText->setHighlighter(new QLuaHighlighter);
+  ui->functionTextBatch->setHighlighter(new QLuaHighlighter);
+
+  lua_completer_ = new QLuaCompleter(this);
+  lua_completer_batch_ = new QLuaCompleter(this);
+
+  ui->globalVarsText->setCompleter(lua_completer_);
+  ui->globalVarsTextBatch->setCompleter(lua_completer_);
+
+  ui->functionText->setCompleter(lua_completer_batch_);
+  ui->functionTextBatch->setCompleter(lua_completer_batch_);
+
   QSettings settings;
 
   this->setWindowTitle("Create a custom timeseries");
@@ -56,11 +84,13 @@ FunctionEditorWidget::FunctionEditorWidget(PlotDataMapRef& plotMapData,
   QFont fixedFont = QFontDatabase::systemFont(QFontDatabase::FixedFont);
   fixedFont.setPointSize(10);
 
-  ui->globalVarsTextField->setFont(fixedFont);
-  ui->mathEquation->setFont(fixedFont);
+  ui->globalVarsText->setFont(fixedFont);
+  ui->functionText->setFont(fixedFont);
+  ui->globalVarsTextBatch->setFont(fixedFont);
+  ui->functionTextBatch->setFont(fixedFont);
   ui->snippetPreview->setFont(fixedFont);
 
-  auto theme = settings.value("StyleSheet:theme", "ligth").toString();
+  auto theme = settings.value("StyleSheet::theme", "light").toString();
   on_stylesheetChanged(theme);
 
   QPalette palette = ui->listAdditionalSources->palette();
@@ -76,8 +106,10 @@ FunctionEditorWidget::FunctionEditorWidget(PlotDataMapRef& plotMapData,
   }
   numericPlotNames.sort(Qt::CaseInsensitive);
 
-  QByteArray saved_xml = settings.value("AddCustomPlotDialog.recentSnippetsXML", QByteArray()).toByteArray();
-  restoreGeometry(settings.value("AddCustomPlotDialog.geometry").toByteArray());
+  QByteArray saved_xml =
+      settings.value("FunctionEditorWidget.recentSnippetsXML", QByteArray())
+          .toByteArray();
+  restoreGeometry(settings.value("FunctionEditorWidget.geometry").toByteArray());
 
   if (saved_xml.isEmpty())
   {
@@ -96,36 +128,92 @@ FunctionEditorWidget::FunctionEditorWidget(PlotDataMapRef& plotMapData,
   connect(ui->snippetsListSaved, &QListWidget::customContextMenuRequested, this,
           &FunctionEditorWidget::savedContextMenu);
 
-  ui->globalVarsTextField->setPlainText(settings.value("AddCustomPlotDialog.previousGlobals", "").toString());
+  ui->globalVarsText->setPlainText(
+      settings.value("FunctionEditorWidget.previousGlobals", "").toString());
+  ui->globalVarsTextBatch->setPlainText(
+      settings.value("FunctionEditorWidget.previousGlobalsBatch", "").toString());
 
-  ui->mathEquation->setPlainText(settings.value("AddCustomPlotDialog.previousFunction", "return value").toString());
+  ui->functionText->setPlainText(
+      settings.value("FunctionEditorWidget.previousFunction", "return value").toString());
+  ui->functionTextBatch->setPlainText(
+      settings.value("FunctionEditorWidget.previousFunctionBatch", "return value")
+          .toString());
 
   ui->lineEditSource->installEventFilter(this);
   ui->listAdditionalSources->installEventFilter(this);
+  ui->lineEditTab2Filter->installEventFilter(this);
 
-  auto preview_layout = new QHBoxLayout( ui->framePlotPreview);
+  auto preview_layout = new QHBoxLayout(ui->framePlotPreview);
   preview_layout->setMargin(6);
-  preview_layout->addWidget(_preview_widget->widget());
+  preview_layout->addWidget(_preview_widget);
 
   _preview_widget->setContextMenuEnabled(false);
 
-  _update_preview_timer.setSingleShot(true);
+  _update_preview_tab1.connectCallback([this]() { onUpdatePreview(); });
+  onUpdatePreview();
+  _update_preview_tab2.connectCallback([this]() { onUpdatePreviewBatch(); });
+  onUpdatePreviewBatch();
 
-  connect(&_update_preview_timer, &QTimer::timeout,
-          this, &FunctionEditorWidget::on_updatePreview);
+  _tab2_filter.connectCallback([this]() { onLineEditTab2FilterChanged(); });
 
-  updatePreview();
+  int batch_filter_type = settings.value("FunctionEditorWidget.filterType", 2).toInt();
+  switch (batch_filter_type)
+  {
+    case 1:
+      ui->radioButtonContains->setChecked(true);
+      break;
+    case 2:
+      ui->radioButtonWildcard->setChecked(true);
+      break;
+    case 3:
+      ui->radioButtonRegExp->setChecked(true);
+      break;
+  }
+
+  bool use_batch_prefix =
+      settings.value("FunctionEditorWidget.batchPrefix", false).toBool();
+  ui->radioButtonPrefix->setChecked(use_batch_prefix);
+}
+
+void FunctionEditorWidget::saveSettings()
+{
+  QSettings settings;
+  settings.setValue("FunctionEditorWidget.recentSnippetsXML", exportSnippets());
+  settings.setValue("FunctionEditorWidget.geometry", saveGeometry());
+
+  settings.setValue("FunctionEditorWidget.previousGlobals",
+                    ui->globalVarsText->toPlainText());
+  settings.setValue("FunctionEditorWidget.previousGlobalsBatch",
+                    ui->globalVarsTextBatch->toPlainText());
+
+  settings.setValue("FunctionEditorWidget.previousFunction",
+                    ui->functionText->toPlainText());
+  settings.setValue("FunctionEditorWidget.previousFunctionBatch",
+                    ui->functionTextBatch->toPlainText());
+  int batch_filter_type = 0;
+  if (ui->radioButtonContains->isChecked())
+  {
+    batch_filter_type = 1;
+  }
+  else if (ui->radioButtonWildcard->isChecked())
+  {
+    batch_filter_type = 2;
+  }
+  if (ui->radioButtonRegExp->isChecked())
+  {
+    batch_filter_type = 3;
+  }
+  settings.setValue("FunctionEditorWidget.filterType", batch_filter_type);
+
+  settings.setValue("FunctionEditorWidget.batchPrefix",
+                    ui->radioButtonPrefix->isChecked());
 }
 
 FunctionEditorWidget::~FunctionEditorWidget()
 {
   delete _preview_widget;
 
-  QSettings settings;
-  settings.setValue("AddCustomPlotDialog.recentSnippetsXML", exportSnippets());
-  settings.setValue("AddCustomPlotDialog.geometry", saveGeometry());
-  settings.setValue("AddCustomPlotDialog.previousGlobals", ui->globalVarsTextField->toPlainText());
-  settings.setValue("AddCustomPlotDialog.previousFunction", ui->mathEquation->toPlainText());
+  saveSettings();
 
   delete ui;
 }
@@ -140,27 +228,15 @@ void FunctionEditorWidget::clear()
   ui->lineEditSource->setText("");
   ui->nameLineEdit->setText("");
   ui->listAdditionalSources->setRowCount(0);
-}
 
+  ui->suffixLineEdit->setText("");
+  ui->listBatchSources->clear();
+  ui->lineEditTab2Filter->setText("");
+}
 
 QString FunctionEditorWidget::getLinkedData() const
 {
   return ui->lineEditSource->text();
-}
-
-QString FunctionEditorWidget::getglobal_vars() const
-{
-  return ui->globalVarsTextField->toPlainText();
-}
-
-QString FunctionEditorWidget::getEquation() const
-{
-  return ui->mathEquation->toPlainText();
-}
-
-QString FunctionEditorWidget::getName() const
-{
-  return ui->nameLineEdit->text();
 }
 
 void FunctionEditorWidget::createNewPlot()
@@ -170,13 +246,12 @@ void FunctionEditorWidget::createNewPlot()
   _editor_mode = CREATE;
 }
 
-
 void FunctionEditorWidget::editExistingPlot(CustomPlotPtr data)
 {
-  ui->globalVarsTextField->setPlainText(data->snippet().global_vars);
-  ui->mathEquation->setPlainText(data->snippet().function);
-  setLinkedPlotName( data->snippet().linked_source );
-  ui->nameLineEdit->setText( data->aliasName() );
+  ui->globalVarsText->setPlainText(data->snippet().global_vars);
+  ui->functionText->setPlainText(data->snippet().function);
+  setLinkedPlotName(data->snippet().linked_source);
+  ui->nameLineEdit->setText(data->aliasName());
   ui->nameLineEdit->setEnabled(false);
 
   _editor_mode = MODIFY;
@@ -184,33 +259,34 @@ void FunctionEditorWidget::editExistingPlot(CustomPlotPtr data)
   auto list_widget = ui->listAdditionalSources;
   list_widget->setRowCount(0);
 
-  for (QString curve_name: data->snippet().additional_sources) {
-    if( list_widget->findItems(curve_name, Qt::MatchExactly).isEmpty() &&
-        curve_name != ui->lineEditSource->text() )
+  for (QString curve_name : data->snippet().additional_sources)
+  {
+    if (list_widget->findItems(curve_name, Qt::MatchExactly).isEmpty() &&
+        curve_name != ui->lineEditSource->text())
     {
       int row = list_widget->rowCount();
-      list_widget->setRowCount(row+1);
-      list_widget->setItem(row,0, new QTableWidgetItem( QString("v%1").arg(row+1)));
-      list_widget->setItem(row,1, new QTableWidgetItem(curve_name));
+      list_widget->setRowCount(row + 1);
+      list_widget->setItem(row, 0, new QTableWidgetItem(QString("v%1").arg(row + 1)));
+      list_widget->setItem(row, 1, new QTableWidgetItem(curve_name));
     }
   }
   on_listSourcesChanged();
 }
 
-//CustomPlotPtr FunctionEditorWidget::getCustomPlotData() const
+// CustomPlotPtr FunctionEditorWidget::getCustomPlotData() const
 //{
 //  return _plot;
 //}
 
-bool FunctionEditorWidget::eventFilter(QObject *obj, QEvent *ev)
+bool FunctionEditorWidget::eventFilter(QObject* obj, QEvent* ev)
 {
-  if( ev->type() == QEvent::DragEnter )
+  if (ev->type() == QEvent::DragEnter)
   {
     auto event = static_cast<QDragEnterEvent*>(ev);
     const QMimeData* mimeData = event->mimeData();
     QStringList mimeFormats = mimeData->formats();
 
-    for(const QString& format : mimeFormats)
+    for (const QString& format : mimeFormats)
     {
       QByteArray encoded = mimeData->data(format);
       QDataStream stream(&encoded, QIODevice::ReadOnly);
@@ -231,32 +307,39 @@ bool FunctionEditorWidget::eventFilter(QObject *obj, QEvent *ev)
           _dragging_curves.push_back(curve_name);
         }
       }
-      if( (obj == ui->lineEditSource && _dragging_curves.size() == 1)
-      || (obj ==  ui->listAdditionalSources && _dragging_curves.size() > 0) )
+      if ((obj == ui->lineEditSource && _dragging_curves.size() == 1) ||
+          (obj == ui->lineEditTab2Filter && _dragging_curves.size() == 1) ||
+          (obj == ui->listAdditionalSources && _dragging_curves.size() > 0))
       {
         event->acceptProposedAction();
         return true;
       }
     }
   }
-  else if ( ev->type() == QEvent::Drop ) {
-    if( obj == ui->lineEditSource )
+  else if (ev->type() == QEvent::Drop)
+  {
+    if (obj == ui->lineEditSource)
     {
-      ui->lineEditSource->setText( _dragging_curves.front() );
+      ui->lineEditSource->setText(_dragging_curves.front());
     }
-    else if ( obj == ui->listAdditionalSources )
+    else if (obj == ui->lineEditTab2Filter)
+    {
+      ui->lineEditTab2Filter->setText(_dragging_curves.front());
+    }
+    else if (obj == ui->listAdditionalSources)
     {
       auto list_widget = ui->listAdditionalSources;
-      for (QString curve_name: _dragging_curves) {
-        if( list_widget->findItems(curve_name, Qt::MatchExactly).isEmpty() &&
-            curve_name != ui->lineEditSource->text() )
+      for (QString curve_name : _dragging_curves)
+      {
+        if (list_widget->findItems(curve_name, Qt::MatchExactly).isEmpty() &&
+            curve_name != ui->lineEditSource->text())
         {
           int row = list_widget->rowCount();
-          list_widget->setRowCount(row+1);
-          list_widget->setItem(row,0, new QTableWidgetItem( QString("v%1").arg(row+1)));
-          list_widget->setItem(row,1, new QTableWidgetItem(curve_name));
+          list_widget->setRowCount(row + 1);
+          list_widget->setItem(row, 0, new QTableWidgetItem(QString("v%1").arg(row + 1)));
+          list_widget->setItem(row, 1, new QTableWidgetItem(curve_name));
         }
-      }   
+      }
       on_listSourcesChanged();
     }
   }
@@ -277,8 +360,9 @@ void FunctionEditorWidget::importSnippets(const QByteArray& xml_text)
 
   for (const auto& custom_it : _transform_maps)
   {
-    auto math_plot = dynamic_cast<LuaCustomFunction*>( custom_it.second.get() );
-    if ( !math_plot ){
+    auto math_plot = dynamic_cast<LuaCustomFunction*>(custom_it.second.get());
+    if (!math_plot)
+    {
       continue;
     }
     SnippetData snippet;
@@ -315,22 +399,22 @@ void FunctionEditorWidget::on_snippetsListSaved_currentRowChanged(int current_ro
 
   QString preview;
 
-  if( !snippet.global_vars.isEmpty() )
+  if (!snippet.global_vars.isEmpty())
   {
-    preview +=  snippet.global_vars + "\n\n";
+    preview += snippet.global_vars + "\n\n";
   }
   preview += "function calc(time, value";
 
-  for (int i=1; i<= snippet.additional_sources.size(); i++)
+  for (int i = 1; i <= snippet.additional_sources.size(); i++)
   {
     preview += QString(", v%1").arg(i);
   }
 
   preview += ")\n";
   auto function_lines = snippet.function.split("\n");
-  for (const auto& line: function_lines)
+  for (const auto& line : function_lines)
   {
-       preview += "    " + line + "\n";
+    preview += "    " + line + "\n";
   }
   preview += "end";
   ui->snippetPreview->setPlainText(preview);
@@ -341,8 +425,8 @@ void FunctionEditorWidget::on_snippetsListSaved_doubleClicked(const QModelIndex&
   const auto& name = ui->snippetsListSaved->item(index.row())->text();
   const SnippetData& snippet = _snipped_saved.at(name);
 
-  ui->globalVarsTextField->setPlainText(snippet.global_vars);
-  ui->mathEquation->setPlainText(snippet.function);
+  ui->globalVarsText->setPlainText(snippet.global_vars);
+  ui->functionText->setPlainText(snippet.function);
 }
 
 void FunctionEditorWidget::savedContextMenu(const QPoint& pos)
@@ -389,12 +473,11 @@ void FunctionEditorWidget::on_nameLineEdit_textChanged(const QString& name)
 void FunctionEditorWidget::on_buttonLoadFunctions_clicked()
 {
   QSettings settings;
-  QString directory_path = settings.value("AddCustomPlotDialog.loadDirectory", QDir::currentPath()).toString();
+  QString directory_path =
+      settings.value("AddCustomPlotDialog.loadDirectory", QDir::currentPath()).toString();
 
-  QString fileName =
-      QFileDialog::getOpenFileName(this, tr("Open Snippet Library"),
-                                   directory_path,
-                                   tr("Snippets (*.snippets.xml)"));
+  QString fileName = QFileDialog::getOpenFileName(
+      this, tr("Open Snippet Library"), directory_path, tr("Snippets (*.snippets.xml)"));
   if (fileName.isEmpty())
   {
     return;
@@ -404,7 +487,8 @@ void FunctionEditorWidget::on_buttonLoadFunctions_clicked()
 
   if (!file.open(QIODevice::ReadOnly))
   {
-    QMessageBox::critical(this, "Error", QString("Failed to open the file [%1]").arg(fileName));
+    QMessageBox::critical(this, "Error",
+                          QString("Failed to open the file [%1]").arg(fileName));
     return;
   }
 
@@ -417,13 +501,11 @@ void FunctionEditorWidget::on_buttonLoadFunctions_clicked()
 void FunctionEditorWidget::on_buttonSaveFunctions_clicked()
 {
   QSettings settings;
-  QString directory_path = settings.value("AddCustomPlotDialog.loadDirectory",
-                                          QDir::currentPath()).toString();
+  QString directory_path =
+      settings.value("AddCustomPlotDialog.loadDirectory", QDir::currentPath()).toString();
 
-  QString fileName =
-      QFileDialog::getSaveFileName(this, tr("Open Snippet Library"),
-                                   directory_path,
-                                   tr("Snippets (*.snippets.xml)"));
+  QString fileName = QFileDialog::getSaveFileName(
+      this, tr("Open Snippet Library"), directory_path, tr("Snippets (*.snippets.xml)"));
 
   if (fileName.isEmpty())
   {
@@ -437,7 +519,8 @@ void FunctionEditorWidget::on_buttonSaveFunctions_clicked()
   QFile file(fileName);
   if (!file.open(QIODevice::WriteOnly))
   {
-    QMessageBox::critical(this, "Error", QString("Failed to open the file [%1]").arg(fileName));
+    QMessageBox::critical(this, "Error",
+                          QString("Failed to open the file [%1]").arg(fileName));
     return;
   }
   auto data = exportSnippets();
@@ -454,23 +537,23 @@ void FunctionEditorWidget::on_buttonSaveCurrent_clicked()
   QString name;
 
   auto selected_snippets = ui->snippetsListSaved->selectedItems();
-  if( selected_snippets.size() >= 1 )
+  if (selected_snippets.size() >= 1)
   {
     name = selected_snippets.front()->text();
   }
   bool ok = false;
-  name = QInputDialog::getText(this, tr("Name of the Function"),
-                               tr("Name:"), QLineEdit::Normal,
-                               name, &ok);
+  name = QInputDialog::getText(this, tr("Name of the Function"), tr("Name:"),
+                               QLineEdit::Normal, name, &ok);
 
-  if (!ok || name.isEmpty()) {
+  if (!ok || name.isEmpty())
+  {
     return;
   }
 
   SnippetData snippet;
   snippet.alias_name = name;
-  snippet.global_vars = ui->globalVarsTextField->toPlainText();
-  snippet.function = ui->mathEquation->toPlainText();
+  snippet.global_vars = ui->globalVarsText->toPlainText();
+  snippet.function = ui->functionText->toPlainText();
 
   addToSaved(name, snippet);
 
@@ -483,7 +566,8 @@ bool FunctionEditorWidget::addToSaved(const QString& name, const SnippetData& sn
   {
     QMessageBox msgBox(this);
     msgBox.setWindowTitle("Warning");
-    msgBox.setText(tr("A function with the same name exists already in the list of saved functions.\n"));
+    msgBox.setText(tr("A function with the same name exists already in the list of saved "
+                      "functions.\n"));
     msgBox.addButton(QMessageBox::Cancel);
     QPushButton* button = msgBox.addButton(tr("Overwrite"), QMessageBox::YesRole);
     msgBox.setDefaultButton(button);
@@ -511,8 +595,8 @@ void FunctionEditorWidget::onRenameSaved()
   const auto& name = item->text();
 
   bool ok;
-  QString new_name =
-      QInputDialog::getText(this, tr("Change the name of the function"), tr("New name:"), QLineEdit::Normal, name, &ok);
+  QString new_name = QInputDialog::getText(this, tr("Change the name of the function"),
+                                           tr("New name:"), QLineEdit::Normal, name, &ok);
 
   if (!ok || new_name.isEmpty() || new_name == name)
   {
@@ -530,65 +614,92 @@ void FunctionEditorWidget::onRenameSaved()
 
 void FunctionEditorWidget::on_pushButtonCreate_clicked()
 {
+  std::vector<CustomPlotPtr> created_plots;
+
   try
   {
-    std::string new_plot_name = getName().toStdString();
-
-    if (_editor_mode == CREATE && _transform_maps.count(new_plot_name) != 0)
+    if (ui->tabWidget->currentIndex() == 0)
     {
-      QMessageBox msgBox(this);
-      msgBox.setWindowTitle("Warning");
-      msgBox.setText(tr("A custom time series with the same name exists already.\n"
-                        " Do you want to overwrite it?\n"));
-      msgBox.addButton(QMessageBox::Cancel);
-      QPushButton* button = msgBox.addButton(tr("Overwrite"), QMessageBox::YesRole);
-      msgBox.setDefaultButton(button);
+      std::string new_plot_name = ui->nameLineEdit->text().toStdString();
 
-      int res = msgBox.exec();
-
-      if (res < 0 || res == QMessageBox::Cancel)
+      if (_editor_mode == CREATE && _transform_maps.count(new_plot_name) != 0)
       {
-        return;
+        QMessageBox msgBox(this);
+        msgBox.setWindowTitle("Warning");
+        msgBox.setText(tr("A custom time series with the same name exists already.\n"
+                          " Do you want to overwrite it?\n"));
+        msgBox.addButton(QMessageBox::Cancel);
+        QPushButton* button = msgBox.addButton(tr("Overwrite"), QMessageBox::YesRole);
+        msgBox.setDefaultButton(button);
+
+        int res = msgBox.exec();
+
+        if (res < 0 || res == QMessageBox::Cancel)
+        {
+          return;
+        }
+      }
+
+      SnippetData snippet;
+      snippet.function = ui->functionText->toPlainText();
+      snippet.global_vars = ui->globalVarsText->toPlainText();
+      snippet.alias_name = ui->nameLineEdit->text();
+      snippet.linked_source = getLinkedData();
+      for (int row = 0; row < ui->listAdditionalSources->rowCount(); row++)
+      {
+        snippet.additional_sources.push_back(
+            ui->listAdditionalSources->item(row, 1)->text());
+      }
+      created_plots.push_back(std::make_unique<LuaCustomFunction>(snippet));
+    }
+    else  // ----------- batch ------
+    {
+      for (int row = 0; row < ui->listBatchSources->count(); row++)
+      {
+        SnippetData snippet;
+        snippet.function = ui->functionTextBatch->toPlainText();
+        snippet.global_vars = ui->globalVarsTextBatch->toPlainText();
+        snippet.linked_source = ui->listBatchSources->item(row)->text();
+        if (ui->radioButtonPrefix->isChecked())
+        {
+          snippet.alias_name = ui->suffixLineEdit->text() + snippet.linked_source;
+        }
+        else
+        {
+          snippet.alias_name = snippet.linked_source + ui->suffixLineEdit->text();
+        }
+        created_plots.push_back(std::make_unique<LuaCustomFunction>(snippet));
       }
     }
 
-    SnippetData snippet;
-    snippet.function = getEquation();
-    snippet.global_vars = getglobal_vars();
-    snippet.alias_name = getName();
-    snippet.linked_source = getLinkedData();
-    for(int row = 0; row < ui->listAdditionalSources->rowCount(); row++)
-    {
-      snippet.additional_sources.push_back( ui->listAdditionalSources->item(row,1)->text());
-    }
-
-    CustomPlotPtr plot = std::make_unique<LuaCustomFunction>(snippet);
-    accept(plot);
+    accept(created_plots);
+    saveSettings();
   }
   catch (const std::runtime_error& e)
   {
-    QMessageBox::critical(this, "Error", "Failed to create math plot : " + QString::fromStdString(e.what()));
+    QMessageBox::critical(this, "Error",
+                          "Failed to create math plot : " +
+                              QString::fromStdString(e.what()));
   }
 }
-
 
 void FunctionEditorWidget::on_pushButtonCancel_pressed()
 {
-  if( _editor_mode == MODIFY )
+  if (_editor_mode == MODIFY)
   {
     clear();
   }
+  saveSettings();
   closed();
 }
-
 
 void FunctionEditorWidget::on_listSourcesChanged()
 {
   QString function_text("function( time, value");
-  for(int row = 0; row < ui->listAdditionalSources->rowCount(); row++)
+  for (int row = 0; row < ui->listAdditionalSources->rowCount(); row++)
   {
     function_text += ", ";
-    function_text += ui->listAdditionalSources->item(row,0)->text();
+    function_text += ui->listAdditionalSources->item(row, 0)->text();
   }
   function_text += " )";
   ui->labelFunction->setText(function_text);
@@ -598,144 +709,179 @@ void FunctionEditorWidget::on_listSourcesChanged()
 
 void FunctionEditorWidget::on_listAdditionalSources_itemSelectionChanged()
 {
-    bool any_selected = !ui->listAdditionalSources->selectedItems().isEmpty();
-    ui->pushButtonDeleteCurves->setEnabled(any_selected);
+  bool any_selected = !ui->listAdditionalSources->selectedItems().isEmpty();
+  ui->pushButtonDeleteCurves->setEnabled(any_selected);
 }
 
 void FunctionEditorWidget::on_pushButtonDeleteCurves_clicked()
 {
   auto list_sources = ui->listAdditionalSources;
   QModelIndexList selected = list_sources->selectionModel()->selectedRows();
-  while( selected.size() > 0 )
+  while (selected.size() > 0)
   {
-    list_sources->removeRow( selected.first().row() );
+    list_sources->removeRow(selected.first().row());
     selected = list_sources->selectionModel()->selectedRows();
   }
-  for( int row = 0; row < list_sources->rowCount(); row++ )
+  for (int row = 0; row < list_sources->rowCount(); row++)
   {
-    list_sources->item(row,0)->setText( QString("v%1").arg(row+1) );
+    list_sources->item(row, 0)->setText(QString("v%1").arg(row + 1));
   }
 
   on_listAdditionalSources_itemSelectionChanged();
   on_listSourcesChanged();
 }
 
-void FunctionEditorWidget::on_lineEditSource_textChanged(const QString &text)
-{
-  updatePreview();
-}
-
-void FunctionEditorWidget::on_mathEquation_textChanged()
+void FunctionEditorWidget::on_lineEditSource_textChanged(const QString& text)
 {
   updatePreview();
 }
 
 void FunctionEditorWidget::updatePreview()
 {
-    _update_preview_timer.start(250);
+  _update_preview_tab1.triggerSignal(250);
 }
 
-void FunctionEditorWidget::on_updatePreview()
+void FunctionEditorWidget::setSemaphore(QLabel* semaphore, QString errors)
 {
-  QString errors;
-  std::string new_plot_name = ui->nameLineEdit->text().toStdString();
-
-  if ( _transform_maps.count(new_plot_name) != 0 )
-  {
-    if( ui->lineEditSource->text().toStdString() == new_plot_name ||
-        ui->listAdditionalSources->findItems(getName(), Qt::MatchExactly).isEmpty() == false )
-    {
-      errors += "- The name of the new timeseries is the same of one of its dependencies.\n";
-    }
-  }
-
-  if( new_plot_name.empty() ) {
-    errors+= "- Missing name of the new time series.\n";
-  }
-  else{
-    // check if name is unique (except if is custom_plot)
-    if (_plot_map_data.numeric.count(new_plot_name) != 0 && _transform_maps.count(new_plot_name) == 0)
-    {
-      errors+= "- Plot name already exists and can't be modified.\n";
-    }
-  }
-
-  if( ui->lineEditSource->text().isEmpty() )
-  {
-    errors+= "- Missing source time series.\n";
-  }
-
-  SnippetData snippet;
-  snippet.function = getEquation();
-  snippet.global_vars = getglobal_vars();
-  snippet.alias_name = getName();
-  snippet.linked_source = getLinkedData();
-  for(int row = 0; row < ui->listAdditionalSources->rowCount(); row++)
-  {
-    snippet.additional_sources.push_back( ui->listAdditionalSources->item(row,1)->text());
-  }
-
-  CustomPlotPtr lua_function;
-  try {
-    lua_function = std::make_unique<LuaCustomFunction>(snippet);
-    ui->buttonSaveCurrent->setEnabled(true);
-  } catch (...)
-  {
-    errors+= "- The Lua function is not valid.\n";
-    ui->buttonSaveCurrent->setEnabled(false);
-  }
-
-  if( lua_function )
-  {
-    try {
-      std::string name = new_plot_name.empty() ? "no_name" : new_plot_name;
-      PlotData& out_data = _local_plot_data.getOrCreateNumeric(name);
-      out_data.clear();
-
-      std::vector<PlotData*> out_vector = {&out_data};
-      lua_function->setData( &_plot_map_data, {}, out_vector );
-      lua_function->calculate();
-
-      _preview_widget->removeAllCurves();
-      _preview_widget->addCurve(name, Qt::blue);
-      _preview_widget->zoomOut(false);
-    } catch (...) {
-      errors+= "- The Lua function can not compute the result.\n";
-    }
-  }
-  //----------------------------------
-
   QFile file(":/resources/svg/red_circle.svg");
 
-  if( errors.isEmpty() )
+  if (errors.isEmpty())
   {
     errors = "Everything is fine :)";
     file.setFileName(":/resources/svg/green_circle.svg");
     ui->pushButtonCreate->setEnabled(true);
   }
-  else{
-    errors = errors.left( errors.size()-1 );
+  else
+  {
+    errors = errors.left(errors.size() - 1);
     ui->pushButtonCreate->setEnabled(false);
   }
 
-  ui->labelSemaphore->setToolTip(errors);
-  ui->labelSemaphore->setToolTipDuration(5000);
+  semaphore->setToolTip(errors);
+  semaphore->setToolTipDuration(5000);
 
   file.open(QFile::ReadOnly | QFile::Text);
   auto svg_data = file.readAll();
   file.close();
   QByteArray content(svg_data);
-  QSvgRenderer rr( content );
+  QSvgRenderer rr(content);
   QImage image(26, 26, QImage::Format_ARGB32);
   QPainter painter(&image);
   image.fill(Qt::transparent);
   rr.render(&painter);
-  ui->labelSemaphore->setPixmap( QPixmap::fromImage(image) );
+  semaphore->setPixmap(QPixmap::fromImage(image));
 }
 
-void FunctionEditorWidget::on_globalVarsTextField_textChanged()
+void FunctionEditorWidget::onUpdatePreview()
 {
-  updatePreview();
+  QString errors;
+  std::string new_plot_name = ui->nameLineEdit->text().toStdString();
+
+  if (_transform_maps.count(new_plot_name) != 0)
+  {
+    QString new_name = ui->nameLineEdit->text();
+    if (ui->lineEditSource->text().toStdString() == new_plot_name ||
+        !ui->listAdditionalSources->findItems(new_name, Qt::MatchExactly).isEmpty())
+    {
+      errors += "- The name of the new timeseries is the same of one of its "
+                "dependencies.\n";
+    }
+  }
+
+  if (new_plot_name.empty())
+  {
+    errors += "- Missing name of the new time series.\n";
+  }
+  else
+  {
+    // check if name is unique (except if is custom_plot)
+    if (_plot_map_data.numeric.count(new_plot_name) != 0 &&
+        _transform_maps.count(new_plot_name) == 0)
+    {
+      errors += "- Plot name already exists and can't be modified.\n";
+    }
+  }
+
+  if (ui->lineEditSource->text().isEmpty())
+  {
+    errors += "- Missing source time series.\n";
+  }
+
+  SnippetData snippet;
+  snippet.function = ui->functionText->toPlainText();
+  snippet.global_vars = ui->globalVarsText->toPlainText();
+  snippet.alias_name = ui->nameLineEdit->text();
+  snippet.linked_source = getLinkedData();
+  for (int row = 0; row < ui->listAdditionalSources->rowCount(); row++)
+  {
+    snippet.additional_sources.push_back(ui->listAdditionalSources->item(row, 1)->text());
+  }
+
+  CustomPlotPtr lua_function;
+  try
+  {
+    lua_function = std::make_unique<LuaCustomFunction>(snippet);
+    ui->buttonSaveCurrent->setEnabled(true);
+  }
+  catch (std::runtime_error& err)
+  {
+    errors += QString("- Error in Lua script: %1").arg(err.what());
+    ui->buttonSaveCurrent->setEnabled(false);
+  }
+
+  if (lua_function)
+  {
+    try
+    {
+      std::string name = new_plot_name.empty() ? "no_name" : new_plot_name;
+      PlotData& out_data = _local_plot_data.getOrCreateNumeric(name);
+      out_data.clear();
+
+      std::vector<PlotData*> out_vector = { &out_data };
+      lua_function->setData(&_plot_map_data, {}, out_vector);
+      lua_function->calculate();
+
+      _preview_widget->removeAllCurves();
+      _preview_widget->addCurve(name, Qt::blue);
+      _preview_widget->zoomOut(false);
+    }
+    catch (std::runtime_error& err)
+    {
+      errors += QString("- Error in Lua script: %1").arg(err.what());
+    }
+  }
+
+  setSemaphore(ui->labelSemaphore, errors);
+}
+
+void FunctionEditorWidget::onUpdatePreviewBatch()
+{
+  QString errors;
+
+  if (ui->suffixLineEdit->text().isEmpty())
+  {
+    errors += "- Missing prefix/suffix.\n";
+  }
+
+  if (ui->listBatchSources->count() == 0)
+  {
+    errors += "- No input series.\n";
+  }
+
+  SnippetData snippet;
+  snippet.function = ui->functionTextBatch->toPlainText();
+  snippet.global_vars = ui->globalVarsTextBatch->toPlainText();
+
+  try
+  {
+    auto lua_function = std::make_unique<LuaCustomFunction>(snippet);
+  }
+  catch (std::runtime_error& err)
+  {
+    errors += QString("- Error in Lua script: %1").arg(err.what());
+  }
+
+  setSemaphore(ui->labelSemaphoreBatch, errors);
 }
 
 void FunctionEditorWidget::on_pushButtonHelp_clicked()
@@ -746,4 +892,98 @@ void FunctionEditorWidget::on_pushButtonHelp_clicked()
 
   dialog->setAttribute(Qt::WA_DeleteOnClose);
   dialog->exec();
+}
+
+void FunctionEditorWidget::onLineEditTab2FilterChanged()
+{
+  QString filter_text = ui->lineEditTab2Filter->text();
+  ui->listBatchSources->clear();
+
+  if (ui->radioButtonRegExp->isChecked() || ui->radioButtonWildcard->isChecked())
+  {
+    QRegExp rx(filter_text);
+    if (ui->radioButtonWildcard->isChecked())
+    {
+      rx.setPatternSyntax(QRegExp::Wildcard);
+    }
+
+    for (const auto& [name, plotdata] : _plot_map_data.numeric)
+    {
+      auto qname = QString::fromStdString(name);
+      if (rx.exactMatch(qname))
+      {
+        ui->listBatchSources->addItem(qname);
+      }
+    }
+  }
+  else
+  {
+    QStringList spaced_items = filter_text.split(' ', QString::SkipEmptyParts);
+    for (const auto& [name, plotdata] : _plot_map_data.numeric)
+    {
+      bool show = true;
+      auto qname = QString::fromStdString(name);
+      for (const auto& part : spaced_items)
+      {
+        if (qname.contains(part) == false)
+        {
+          show = false;
+          break;
+        }
+      }
+      if (show)
+      {
+        ui->listBatchSources->addItem(qname);
+      }
+    }
+  }
+  ui->listBatchSources->sortItems();
+  onUpdatePreviewBatch();
+}
+
+void FunctionEditorWidget::on_pushButtonHelpTab2_clicked()
+{
+  on_pushButtonHelp_clicked();
+}
+
+void FunctionEditorWidget::on_lineEditTab2Filter_textChanged(const QString& arg1)
+{
+  _tab2_filter.triggerSignal(250);
+}
+
+void FunctionEditorWidget::on_functionTextBatch_textChanged()
+{
+  _update_preview_tab2.triggerSignal(250);
+}
+
+void FunctionEditorWidget::on_suffixLineEdit_textChanged(const QString& arg1)
+{
+  _update_preview_tab2.triggerSignal(250);
+}
+
+void FunctionEditorWidget::on_tabWidget_currentChanged(int index)
+{
+  if (index == 0)
+  {
+    onUpdatePreview();
+  }
+  else
+  {
+    onUpdatePreviewBatch();
+  }
+}
+
+void FunctionEditorWidget::on_globalVarsTextBatch_textChanged()
+{
+  _update_preview_tab2.triggerSignal(250);
+}
+
+void FunctionEditorWidget::on_globalVarsText_textChanged()
+{
+  _update_preview_tab1.triggerSignal(250);
+}
+
+void FunctionEditorWidget::on_functionText_textChanged()
+{
+  _update_preview_tab1.triggerSignal(250);
 }

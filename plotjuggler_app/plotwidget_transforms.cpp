@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #include "plotwidget_transforms.h"
 #include "ui_plotwidget_transforms.h"
 #include <QHBoxLayout>
@@ -11,22 +17,20 @@
 #include <QDebug>
 #include <qwt_text.h>
 
-DialogTransformEditor::DialogTransformEditor(PlotWidget* plotwidget) :
-  QDialog(plotwidget->widget()),
-  ui(new Ui::plotwidget_transforms),
-  _plotwidget_origin(plotwidget)
+DialogTransformEditor::DialogTransformEditor(PlotWidget* plotwidget)
+  : QDialog(plotwidget), ui(new Ui::plotwidget_transforms), _plotwidget_origin(plotwidget)
 {
   ui->setupUi(this);
 
   QDomDocument doc;
   auto saved_state = plotwidget->xmlSaveState(doc);
-  _plotwidget = new PlotWidget(plotwidget->datamap());
-  _plotwidget->on_changeTimeOffset( plotwidget->timeOffset() );
+  _plotwidget = new PlotWidget(plotwidget->datamap(), this);
+  _plotwidget->on_changeTimeOffset(plotwidget->timeOffset());
   _plotwidget->xmlLoadState(saved_state);
 
   auto layout = new QVBoxLayout();
   ui->framePlotPreview->setLayout(layout);
-  layout->addWidget(_plotwidget->widget());
+  layout->addWidget(_plotwidget);
   layout->setMargin(6);
 
   _plotwidget->zoomOut(false);
@@ -41,12 +45,13 @@ DialogTransformEditor::DialogTransformEditor(PlotWidget* plotwidget) :
 
   auto names = TransformFactory::registeredTransforms();
 
-  for(const auto& name: names)
+  for (const auto& name : names)
   {
-    ui->listTransforms->addItem( QString::fromStdString(name) );
+    ui->listTransforms->addItem(QString::fromStdString(name));
   }
 
-  if( ui->listCurves->count() != 0 ){
+  if (ui->listCurves->count() != 0)
+  {
     ui->listCurves->item(0)->setSelected(true);
   }
 }
@@ -63,10 +68,10 @@ void DialogTransformEditor::setupTable()
     auto color = it.second;
     auto item = new QListWidgetItem();
     //  item->setForeground(color);
-    ui->listCurves->addItem( item );
-    auto plot_row = new RowWidget(name, color) ;
-    item->setSizeHint( plot_row->sizeHint() );
-    ui->listCurves->setItemWidget(item, plot_row );
+    ui->listCurves->addItem(item);
+    auto plot_row = new RowWidget(name, color);
+    item->setSizeHint(plot_row->sizeHint());
+    ui->listCurves->setItemWidget(item, plot_row);
 
     row++;
   }
@@ -83,61 +88,67 @@ DialogTransformEditor::~DialogTransformEditor()
 DialogTransformEditor::RowWidget::RowWidget(QString text, QColor color)
 {
   auto layout = new QHBoxLayout();
-  setLayout( layout );
+  setLayout(layout);
   _text = new QLabel(text, this);
 
-  setStyleSheet( QString("color: %1;").arg(color.name()));
+  setStyleSheet(QString("color: %1;").arg(color.name()));
   _color = color;
 
   layout->addWidget(_text);
 }
 
-QString DialogTransformEditor::RowWidget::text() const{
+QString DialogTransformEditor::RowWidget::text() const
+{
   return _text->text();
 }
 
-QColor DialogTransformEditor::RowWidget::color() const{
+QColor DialogTransformEditor::RowWidget::color() const
+{
   return _color;
 }
 
 void DialogTransformEditor::on_listCurves_itemSelectionChanged()
 {
   auto selected = ui->listCurves->selectedItems();
-  if( selected.size() != 1){
+  if (selected.size() != 1)
+  {
     return;
   }
   auto item = selected.front();
-  auto row_widget = dynamic_cast<RowWidget*>(  ui->listCurves->itemWidget(item) );
+  auto row_widget = dynamic_cast<RowWidget*>(ui->listCurves->itemWidget(item));
   auto curve_name = row_widget->text();
 
   auto curve_it = _plotwidget->curveFromTitle(curve_name);
-  auto ts = dynamic_cast<TransformedTimeseries*>( curve_it->curve->data() );
-
   int transform_row = 0;
-  if( ts->transform() )
+  if (auto ts = dynamic_cast<TransformedTimeseries*>(curve_it->curve->data()))
   {
-    for( int row = 1; row < ui->listTransforms->count(); row++)
+    if (ts->transform())
     {
-      if( ui->listTransforms->item(row)->text() == ts->transformName() )
+      for (int row = 1; row < ui->listTransforms->count(); row++)
       {
-        transform_row = row;
-        break;
+        if (ui->listTransforms->item(row)->text() == ts->transformName())
+        {
+          transform_row = row;
+          break;
+        }
       }
     }
   }
 
   int selected_row = -1;
   auto selected_transforms = ui->listTransforms->selectedItems();
-  if( selected_transforms.size() == 1)
+  if (selected_transforms.size() == 1)
   {
     selected_row = ui->listTransforms->row(selected_transforms.front());
   }
 
-  if( selected_row == transform_row){
+  if (selected_row == transform_row)
+  {
     // force callback
     on_listTransforms_itemSelectionChanged();
   }
-  else{
+  else
+  {
     ui->listTransforms->item(transform_row)->setSelected(true);
   }
 }
@@ -145,27 +156,29 @@ void DialogTransformEditor::on_listCurves_itemSelectionChanged()
 void DialogTransformEditor::on_listTransforms_itemSelectionChanged()
 {
   auto selected_curves = ui->listCurves->selectedItems();
-  if( selected_curves.size() != 1){
+  if (selected_curves.size() != 1)
+  {
     return;
   }
-  auto row_widget = dynamic_cast<RowWidget*>(
-      ui->listCurves->itemWidget(selected_curves.front()) );
+  auto row_widget =
+      dynamic_cast<RowWidget*>(ui->listCurves->itemWidget(selected_curves.front()));
 
   QString curve_name = row_widget->text();
 
   auto selected_transforms = ui->listTransforms->selectedItems();
-  if( selected_transforms.size() != 1){
+  if (selected_transforms.size() != 1)
+  {
     return;
   }
   QString transform_ID = selected_transforms.front()->text();
 
   auto curve_info = _plotwidget->curveFromTitle(curve_name);
   auto qwt_curve = curve_info->curve;
-  auto ts = dynamic_cast<TransformedTimeseries*>( curve_info->curve->data() );
+  auto ts = dynamic_cast<TransformedTimeseries*>(curve_info->curve->data());
 
   QSignalBlocker block(ui->lineEditAlias);
 
-  if( transform_ID.isEmpty() || transform_ID == ui->listTransforms->item(0)->text() )
+  if (transform_ID.isEmpty() || transform_ID == ui->listTransforms->item(0)->text())
   {
     ts->setTransform({});
     ts->updateCache(true);
@@ -173,40 +186,47 @@ void DialogTransformEditor::on_listTransforms_itemSelectionChanged()
 
     ui->lineEditAlias->setText("");
     ui->lineEditAlias->setEnabled(false);
-    qwt_curve->setTitle( curve_name );
+    qwt_curve->setTitle(curve_name);
   }
-  else{
+  else
+  {
     ts->setTransform(transform_ID);
     ts->updateCache(true);
     ui->lineEditAlias->setEnabled(true);
 
     QString curve_title = qwt_curve->title().text();
-    if( ts->alias().isEmpty())
+    if (ts->alias().isEmpty())
     {
       auto src_name = QString::fromStdString(curve_info->src_name);
       auto new_title = QString("%1[%2]").arg(src_name).arg(transform_ID);
       ts->setAlias(new_title);
     }
 
-    ui->lineEditAlias->setText( ts->alias() );
-    qwt_curve->setTitle( ts->alias() );
+    ui->lineEditAlias->setText(ts->alias());
+    qwt_curve->setTitle(ts->alias());
 
     auto widget = ts->transform()->optionsWidget();
     int index = ui->stackedWidgetArguments->indexOf(widget);
-    if( index == -1)
+    if (index == -1 && widget)
     {
       index = ui->stackedWidgetArguments->addWidget(widget);
     }
 
     ui->stackedWidgetArguments->setCurrentIndex(index);
 
-    if( _connected_transform_widgets.count(widget) == 0)
+    if (_connected_transform_widgets.count(widget) == 0)
     {
-      connect( ts->transform().get(), &TransformFunction::parametersChanged,
-              this, [=]() {
-                ts->updateCache(true);
-                _plotwidget->zoomOut(false);
-              });
+      connect(ts->transform().get(), &TransformFunction::parametersChanged, this, [=]() {
+        ts->updateCache(true);
+        if (ui->checkBoxAutoZoom->isChecked())
+        {
+          _plotwidget->zoomOut(false);
+        }
+        else
+        {
+          _plotwidget->replot();
+        }
+      });
       _connected_transform_widgets.insert(widget);
     }
   }
@@ -223,10 +243,16 @@ void DialogTransformEditor::on_pushButtonSave_clicked()
 {
   on_lineEditAlias_editingFinished();
 
+  QSettings settings;
+  bool autozoom_filter_applied = settings.value("Preferences::autozoom_filter_applied",true).toBool();
   QDomDocument doc;
   auto elem = _plotwidget->xmlSaveState(doc);
-  _plotwidget_origin->xmlLoadState( elem );
-  _plotwidget_origin->zoomOut(false);
+  _plotwidget_origin->xmlLoadState(elem,autozoom_filter_applied);
+
+  if(autozoom_filter_applied)
+  {
+    _plotwidget_origin->zoomOut(false);
+  }
 
   this->accept();
 }
@@ -234,20 +260,21 @@ void DialogTransformEditor::on_pushButtonSave_clicked()
 void DialogTransformEditor::on_lineEditAlias_editingFinished()
 {
   auto selected_curves = ui->listCurves->selectedItems();
-  if( selected_curves.size() != 1){
+  if (selected_curves.size() != 1)
+  {
     return;
   }
-  auto row_widget = dynamic_cast<RowWidget*>(
-      ui->listCurves->itemWidget(selected_curves.front()) );
+  auto row_widget =
+      dynamic_cast<RowWidget*>(ui->listCurves->itemWidget(selected_curves.front()));
 
   QString curve_name = row_widget->text();
 
   auto curve_it = _plotwidget->curveFromTitle(curve_name);
-  auto ts = dynamic_cast<TransformedTimeseries*>( curve_it->curve->data() );
+  auto ts = dynamic_cast<TransformedTimeseries*>(curve_it->curve->data());
 
-  curve_it->curve->setTitle( ui->lineEditAlias->text() );
+  curve_it->curve->setTitle(ui->lineEditAlias->text());
 
-  if( ts && ts->transform() )
+  if (ts && ts->transform())
   {
     ts->setAlias(ui->lineEditAlias->text());
   }

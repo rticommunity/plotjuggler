@@ -1,0 +1,13 @@
+{
+  "name": "plotjuggler",
+  "version-string": "3.5.1",
+  "dependencies": [
+    "protobuf",
+    "mosquitto",
+    "zeromq",
+    {
+      "name": "arrow",
+      "features": [ "parquet" ]
+    }
+  ]
+}

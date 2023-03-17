@@ -469,6 +469,16 @@ QCheckBox::indicator:checked:pressed {
 
 /* QGroupBox -------------------------------------------------------------- */
 
+QGroupBox{
+    margin-top:10px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding-bottom: 10px;
+}
+
 QGroupBox::indicator {
     margin-left: 4px;
     width: 16px;
@@ -652,6 +662,29 @@ QHeaderView::section {
     border: 1px solid #6c6c6c;
 }
 
+QHeaderView::text{
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+QHeaderView::up-arrow { 
+    subcontrol-position: center right;
+    image: url(":/style_${theme}/arrow_up.png");
+    height: 12px;
+    width: 12px;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+QHeaderView::down-arrow { 
+    subcontrol-position: center right;
+    image: url(":/style_${theme}/arrow_down.png");
+    height: 12px;
+    width: 12px;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
 QTreeView:branch {
     background-color: transparent;
 }
@@ -795,7 +828,18 @@ QLineEdit#lineEditFilter{
   border-bottom: 2px solid ${border_hover};
 }
 
+QLineEdit#lineEditPrefix{
+  background-color: transparent;
+  border: 0px;
+  border-radius: 0px;
+  border-bottom: 2px solid ${border_hover};
+}
+
 QLineEdit#lineEditFilter:focus{
+  border-bottom: 2px solid ${border_checked};
+}
+
+QLineEdit#lineEditPrefix:focus{
   border-bottom: 2px solid ${border_checked};
 }
 

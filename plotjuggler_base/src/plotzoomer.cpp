@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #include "plotzoomer.h"
 #include <QMouseEvent>
 #include <QApplication>
@@ -7,6 +13,7 @@
 #include "qwt_plot_zoomer.h"
 #include "qwt_scale_map.h"
 #include "qwt_plot.h"
+#include "PlotJuggler/svg_util.h"
 
 PlotZoomer::PlotZoomer(QWidget* canvas)
   : QwtPlotZoomer(canvas, false)
@@ -44,13 +51,14 @@ void PlotZoomer::widgetMouseMoveEvent(QMouseEvent* me)
       QRect rect(me->pos(), _initial_pos);
       QRectF zoomRect = invTransform(rect.normalized());
 
-      if (zoomRect.width() > minZoomSize().width() && zoomRect.height() > minZoomSize().height())
+      if (zoomRect.width() > minZoomSize().width() &&
+          zoomRect.height() > minZoomSize().height())
       {
         if (!_zoom_enabled)
         {
           QSettings settings;
           QString theme = settings.value("Preferences::theme", "light").toString();
-          QPixmap pixmap(tr(":/style_%1/zoom_in.png").arg(theme));
+          const QPixmap& pixmap = LoadSvg(":/resources/svg/zoom_in.svg", theme);
           QCursor zoom_cursor(pixmap.scaled(24, 24));
 
           _zoom_enabled = true;
@@ -91,7 +99,8 @@ bool PlotZoomer::accept(QPolygon& pa) const
   QRect rect = QRect(pa[0], pa[int(pa.count()) - 1]);
   QRectF zoomRect = invTransform(rect.normalized());
 
-  if (zoomRect.width() < minZoomSize().width() && zoomRect.height() < minZoomSize().height())
+  if (zoomRect.width() < minZoomSize().width() &&
+      zoomRect.height() < minZoomSize().height())
   {
     return false;
   }

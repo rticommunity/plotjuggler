@@ -1,12 +1,18 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #include "point_series_xy.h"
 #include <cmath>
 #include <cstdlib>
 
 PointSeriesXY::PointSeriesXY(const PlotData* x_axis, const PlotData* y_axis)
-  : QwtSeriesWrapper(&_cached_curve),
-    _x_axis(x_axis),
-    _y_axis(y_axis),
-    _cached_curve("", x_axis->group())
+  : QwtTimeseries(nullptr)
+  , _x_axis(x_axis)
+  , _y_axis(y_axis)
+  , _cached_curve("", x_axis->group())
 {
   updateCache(true);
 }
@@ -37,10 +43,8 @@ RangeOpt PointSeriesXY::getVisualizationRangeY(Range)
   return _cached_curve.rangeY();
 }
 
-bool PointSeriesXY::updateCache(bool reset_old_data)
+void PointSeriesXY::updateCache(bool reset_old_data)
 {
-  // TODO use reset_old_data
-
   _cached_curve.clear();
 
   if (_x_axis == nullptr)
@@ -52,7 +56,7 @@ bool PointSeriesXY::updateCache(bool reset_old_data)
 
   if (data_size == 0)
   {
-    return true;
+    return;
   }
 
   const double EPS = std::numeric_limits<double>::epsilon();
@@ -65,9 +69,8 @@ bool PointSeriesXY::updateCache(bool reset_old_data)
     }
 
     const QPointF p(_x_axis->at(i).y, _y_axis->at(i).y);
-    _cached_curve.pushBack( { p.x(), p.y() } );
+    _cached_curve.pushBack({ p.x(), p.y() });
   }
-  return true;
 }
 
 RangeOpt PointSeriesXY::getVisualizationRangeX()

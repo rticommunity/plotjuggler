@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #ifndef PLOTWIDGET_BASE_H
 #define PLOTWIDGET_BASE_H
 
@@ -7,23 +13,22 @@
 
 class QwtPlot;
 class QwtPlotCurve;
-class QwtPlotPanner;
 class QwtPlotMarker;
 
+class PlotPanner;
 class PlotZoomer;
 class PlotMagnifier;
 class PlotLegend;
 
 namespace PJ
 {
-
-class PlotWidgetBase: public QObject
+class PlotWidgetBase : public QWidget
 {
   Q_OBJECT
 
 public:
-
-  enum CurveStyle {
+  enum CurveStyle
+  {
     LINES,
     DOTS,
     LINES_AND_DOTS,
@@ -39,27 +44,26 @@ public:
 
   PlotWidgetBase(QWidget* parent);
 
-  ~PlotWidgetBase();
+  virtual ~PlotWidgetBase();
 
-  virtual CurveInfo* addCurve(const std::string& name,
-                              PlotData &src_data,
+  virtual CurveInfo* addCurve(const std::string& name, PlotDataXY& src_data,
                               QColor color = Qt::transparent);
 
   virtual void removeCurve(const QString& title);
 
-  const std::list<CurveInfo> &curveList() const;
+  const std::list<CurveInfo>& curveList() const;
+  std::list<CurveInfo>& curveList();
 
   bool isEmpty() const;
 
-  QColor getColorHint(PlotData* data);
+  QColor getColorHint(PlotDataXY* data);
 
   std::map<QString, QColor> getCurveColors() const;
 
-  CurveInfo* curveFromTitle(const QString &title);
+  CurveInfo* curveFromTitle(const QString& title);
 
-  virtual QwtSeriesWrapper* createTimeSeries(
-      const QString& transform_ID,
-      const PlotData* data);
+  virtual QwtSeriesWrapper* createTimeSeries(const PlotData* data,
+                                             const QString& transform_ID = {});
 
   virtual void resetZoom();
 
@@ -81,13 +85,9 @@ public:
 
   bool isXYPlot() const;
 
-  QRectF canvasBoundingRect() const;
+  QRectF currentBoundingRect() const;
 
   QRectF maxZoomRect() const;
-
-  QWidget* widget();
-
-  const QWidget* widget() const;
 
   CurveStyle curveStyle() const;
 
@@ -110,22 +110,22 @@ signals:
   void viewResized(const QRectF&);
 
   void dragEnterSignal(QDragEnterEvent* event);
+  void dragLeaveSignal(QDragLeaveEvent* event);
 
   void dropSignal(QDropEvent* event);
 
   void legendSizeChanged(int new_size);
 
-protected:
+  void widgetResized();
 
+protected:
   class QwtPlotPimpl;
   QwtPlotPimpl* p = nullptr;
 
-  static void setStyle( QwtPlotCurve* curve, CurveStyle style );
+  static void setStyle(QwtPlotCurve* curve, CurveStyle style);
 
   QwtPlot* qwtPlot();
   const QwtPlot* qwtPlot() const;
-
-  std::list<CurveInfo> &curveList();
 
   PlotLegend* legend();
   PlotZoomer* zoomer();
@@ -143,8 +143,6 @@ private:
   bool _keep_aspect_ratio;
 };
 
-}
+}  // namespace PJ
 
-
-
-#endif // PLOTWIDGET_PROXY_H
+#endif  // PLOTWIDGET_PROXY_H

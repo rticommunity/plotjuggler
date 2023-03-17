@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #ifndef UTILS_H
 #define UTILS_H
 
@@ -35,7 +41,6 @@ private:
   double _value;
 };
 
-
 struct MoveDataRet
 {
   std::vector<std::string> added_curves;
@@ -43,10 +48,7 @@ struct MoveDataRet
   bool data_pushed = false;
 };
 
-
-MoveDataRet MoveData(PlotDataMapRef& source,
-            PlotDataMapRef& destination,
-            bool remove_older);
-
+MoveDataRet MoveData(PlotDataMapRef& source, PlotDataMapRef& destination,
+                     bool remove_older);
 
 #endif  // UTILS_H

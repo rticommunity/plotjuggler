@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #ifndef CURVE_SELECTOR_H
 #define CURVE_SELECTOR_H
 
@@ -8,6 +14,7 @@
 #include <QStandardItemModel>
 #include <QTableView>
 #include <QItemSelection>
+#include <unordered_set>
 
 #include "transforms/custom_function.h"
 #include "tree_completer.h"
@@ -25,14 +32,13 @@ class CurveListPanel : public QWidget
 
 public:
   explicit CurveListPanel(PlotDataMapRef& mapped_plot_data,
-                          const TransformsMap& mapped_math_plots,
-                          QWidget* parent);
+                          const TransformsMap& mapped_math_plots, QWidget* parent);
 
   ~CurveListPanel() override;
 
   void clear();
 
-  void addCurve(const std::string &plot_name);
+  bool addCurve(const std::string& plot_name);
 
   void addCustom(const QString& item_name);
 
@@ -52,8 +58,8 @@ public:
 
   virtual void keyPressEvent(QKeyEvent* event) override;
 
-  void updateColors();
-  
+  void updateAppearance();
+
 private slots:
 
   void on_lineEditFilter_textChanged(const QString& search_string);
@@ -64,7 +70,8 @@ private slots:
 
   void on_buttonEditCustom_clicked();
 
-  void onCustomSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
+  void onCustomSelectionChanged(const QItemSelection& selected,
+                                const QItemSelection& deselected);
 
   void on_checkBoxShowValues_toggled(bool show);
 
@@ -81,7 +88,6 @@ public slots:
   void refreshValues();
 
 protected:
-
 private:
   Ui::CurveListPanel* ui;
 
@@ -89,8 +95,9 @@ private:
 
   void updateTreeModel();
 
-  CurveTableView* _custom_view;
+  CurveTreeView* _custom_view;
   CurveTreeView* _tree_view;
+  std::unordered_set<std::string> _tree_view_items;
 
   double _tracker_time = 0;
 

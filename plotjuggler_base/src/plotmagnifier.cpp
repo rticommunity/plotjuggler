@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #include <limits>
 #include <QDebug>
 #include <QWheelEvent>
@@ -7,11 +13,12 @@
 #include "qwt_plot.h"
 #include "qwt_scale_map.h"
 
-PlotMagnifier::PlotMagnifier(QWidget* canvas) : QwtPlotMagnifier(canvas), _default_mode(BOTH_AXES)
+PlotMagnifier::PlotMagnifier(QWidget* canvas)
+  : QwtPlotMagnifier(canvas), _default_mode(BOTH_AXES)
 {
   for (int axisId = 0; axisId < QwtPlot::axisCnt; axisId++)
   {
-    _lower_bounds[axisId] = -std::numeric_limits<double>::max();
+    _lower_bounds[axisId] = std::numeric_limits<double>::lowest();
     _upper_bounds[axisId] = std::numeric_limits<double>::max();
   }
 }
@@ -87,8 +94,12 @@ void PlotMagnifier::rescale(double factor, AxisMode axis)
       v1 = center - width * temp_factor * (1 - ratio);
       v2 = center + width * temp_factor * (ratio);
 
+      bool reversed_axis = false;
       if (v1 > v2)
+      {
+        reversed_axis = true;
         std::swap(v1, v2);
+      }
 
       if (scaleMap.transformation())
       {
@@ -96,12 +107,17 @@ void PlotMagnifier::rescale(double factor, AxisMode axis)
         v2 = scaleMap.invTransform(v2);
       }
 
-      if (v1 < _lower_bounds[axisId])
-        v1 = _lower_bounds[axisId];
-      if (v2 > _upper_bounds[axisId])
-        v2 = _upper_bounds[axisId];
+      v1 = std::max(v1, _lower_bounds[axisId]);
+      v2 = std::min(v2, _upper_bounds[axisId]);
 
-      plt->setAxisScale(axisId, v1, v2);
+      if (reversed_axis)
+      {
+        plt->setAxisScale(axisId, v2, v1);
+      }
+      else
+      {
+        plt->setAxisScale(axisId, v1, v2);
+      }
 
       if (axisId == QwtPlot::xBottom)
       {

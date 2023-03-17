@@ -7,14 +7,19 @@
 #include <QProgressDialog>
 #include <QDateTime>
 #include <QInputDialog>
+#include <QPushButton>
+#include "QSyntaxStyle"
+#include "datetimehelp.h"
+
+
+#include <QStandardItemModel>
 
 const int TIME_INDEX_NOT_DEFINED = -2;
 const int TIME_INDEX_GENERATED = -1;
 
-
-QStringList SplitLine(const QString& line, QChar separator)
+void SplitLine(const QString& line, QChar separator, QStringList& parts)
 {
-  QStringList parts;
+  parts.clear();
   bool inside_quotes = false;
   bool quoted_word = false;
   int start_pos = 0;
@@ -22,17 +27,18 @@ QStringList SplitLine(const QString& line, QChar separator)
   int quote_start = 0;
   int quote_end = 0;
 
-  for( int pos = 0; pos < line.size(); pos++ )
+  for (int pos = 0; pos < line.size(); pos++)
   {
-    if( line[pos] == '"' )
+    if (line[pos] == '"')
     {
-      if( inside_quotes )
+      if (inside_quotes)
       {
         quoted_word = true;
-        quote_end = pos-1;
+        quote_end = pos - 1;
       }
-      else{
-        quote_start = pos+1;
+      else
+      {
+        quote_start = pos + 1;
       }
       inside_quotes = !inside_quotes;
     }
@@ -41,90 +47,101 @@ QStringList SplitLine(const QString& line, QChar separator)
     bool add_empty = false;
     int end_pos = pos;
 
-    if( (!inside_quotes && line[pos] == separator) )
+    if ((!inside_quotes && line[pos] == separator))
     {
       part_completed = true;
     }
-    if( pos+1 == line.size() )
+    if (pos + 1 == line.size())
     {
       part_completed = true;
-      end_pos = pos+1;
+      end_pos = pos + 1;
       // special case
-      if( line[pos] == separator )
+      if (line[pos] == separator)
       {
         end_pos = pos;
         add_empty = true;
       }
     }
 
-    if( part_completed )
+    if (part_completed)
     {
       QString part;
-      if ( quoted_word ) {
-        part = line.mid(quote_start, quote_end - quote_start + 1 );
+      if (quoted_word)
+      {
+        part = line.mid(quote_start, quote_end - quote_start + 1);
       }
-      else{
-        part = line.mid(start_pos, end_pos - start_pos );
+      else
+      {
+        part = line.mid(start_pos, end_pos - start_pos);
       }
 
-      parts.push_back( part.trimmed() );
-      start_pos = pos+1;
+      parts.push_back(part.trimmed());
+      start_pos = pos + 1;
       quoted_word = false;
       inside_quotes = false;
     }
-    if( add_empty )
+    if (add_empty)
     {
-      parts.push_back( QString() );
+      parts.push_back(QString());
     }
   }
-
-  return parts;
 }
 
 DataLoadCSV::DataLoadCSV()
 {
   _extensions.push_back("csv");
-  _separator = ',';
+  _delimiter = ',';
+  _csvHighlighter.delimiter = _delimiter;
   // setup the dialog
 
   _dialog = new QDialog();
   _ui = new Ui::DialogCSV();
   _ui->setupUi(_dialog);
 
-  connect ( _ui->radioButtonSelect, &QRadioButton::toggled,
-          this, [this]( bool checked ) {
-            _ui->listWidgetSeries->setEnabled( checked );
-            auto selected = _ui->listWidgetSeries->selectionModel()->selectedIndexes();
-            bool box_enabled = !checked || selected.size() == 1;
-            _ui->buttonBox->setEnabled( box_enabled );
-          });
-  connect ( _ui->listWidgetSeries, &QListWidget::itemSelectionChanged,
-          this, [this]() {
-            auto selected = _ui->listWidgetSeries->selectionModel()->selectedIndexes();
-            bool box_enabled = _ui->radioButtonIndex->isChecked() || selected.size() == 1;
-            _ui->buttonBox->setEnabled( box_enabled );
-          });
+  _dateTime_dialog = new DateTimeHelp(_dialog);
 
-  connect ( _ui->listWidgetSeries, &QListWidget::itemDoubleClicked,
-          this, [this]() {
-            emit _ui->buttonBox->accepted();
-          });
 
-  connect(_ui->checkBoxDateFormat, &QCheckBox::toggled,
-          this,  [this](bool checked) {
-          _ui->lineEditDateFormat->setEnabled( checked );
-        });
+  _ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
 
+  connect(_ui->radioButtonSelect, &QRadioButton::toggled, this, [this](bool checked) {
+    _ui->listWidgetSeries->setEnabled(checked);
+    auto selected = _ui->listWidgetSeries->selectionModel()->selectedIndexes();
+    bool box_enabled = !checked || selected.size() == 1;
+    _ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(box_enabled);
+  });
+  connect(_ui->listWidgetSeries, &QListWidget::itemSelectionChanged, this, [this]() {
+    auto selected = _ui->listWidgetSeries->selectionModel()->selectedIndexes();
+    bool box_enabled = _ui->radioButtonIndex->isChecked() || selected.size() == 1;
+    _ui->buttonBox->button(QDialogButtonBox::Ok)->setEnabled(box_enabled);
+  });
+
+  connect(_ui->listWidgetSeries, &QListWidget::itemDoubleClicked, this,
+          [this]() { emit _ui->buttonBox->accepted(); });
+
+  connect(_ui->checkBoxDateFormat, &QCheckBox::toggled, this,
+          [this](bool checked) { _ui->lineEditDateFormat->setEnabled(checked); });
+
+  connect(_ui->dateTimeHelpButton,&QPushButton::clicked, this, [this](){
+        _dateTime_dialog->show();
+  });
+  _ui->rawText->setHighlighter(&_csvHighlighter);
+
+  QSizePolicy sp_retain = _ui->tableView->sizePolicy();
+  sp_retain.setRetainSizeWhenHidden(true);
+  _ui->tableView->setSizePolicy(sp_retain);
 
   _ui->splitter->setStretchFactor(0, 1);
   _ui->splitter->setStretchFactor(1, 2);
-}
 
+  _model = new QStandardItemModel;
+  _ui->tableView->setModel(_model);
+}
 
 DataLoadCSV::~DataLoadCSV()
 {
   delete _ui;
   delete _dialog;
+  delete _dateTime_dialog;
 }
 
 const std::vector<const char*>& DataLoadCSV::compatibleFileExtensions() const
@@ -132,12 +149,13 @@ const std::vector<const char*>& DataLoadCSV::compatibleFileExtensions() const
   return _extensions;
 }
 
-void DataLoadCSV::parseHeader(QFile& file,
-                              std::vector<std::string>* column_names )
+void DataLoadCSV::parseHeader(QFile& file, std::vector<std::string>& column_names)
 {
   file.open(QFile::ReadOnly);
 
-  column_names->clear();
+  _csvHighlighter.delimiter = _delimiter;
+
+  column_names.clear();
   _ui->listWidgetSeries->clear();
 
   QTextStream inA(&file);
@@ -147,28 +165,32 @@ void DataLoadCSV::parseHeader(QFile& file,
 
   QString preview_lines = first_line + "\n";
 
-  QStringList firstline_items = SplitLine( first_line, _separator );
+  QStringList firstline_items;
+  SplitLine(first_line, _delimiter, firstline_items);
 
   int is_number_count = 0;
+
+  std::set<std::string> different_columns;
 
   // check if all the elements in first row are numbers
   for (int i = 0; i < firstline_items.size(); i++)
   {
     bool isNum;
     firstline_items[i].trimmed().toDouble(&isNum);
-    if( isNum )
+    if (isNum)
     {
       is_number_count++;
     }
   }
 
-  if( is_number_count == firstline_items.size() )
+  if (is_number_count == firstline_items.size())
   {
     for (int i = 0; i < firstline_items.size(); i++)
     {
       auto field_name = QString("_Column_%1").arg(i);
-      _ui->listWidgetSeries->addItem( field_name );
-      column_names->push_back(field_name.toStdString());
+      auto column_name = field_name.toStdString();
+      column_names.push_back(column_name);
+      different_columns.insert(column_name);
     }
   }
   else
@@ -182,38 +204,103 @@ void DataLoadCSV::parseHeader(QFile& file,
       {
         field_name = QString("_Column_%1").arg(i);
       }
-      _ui->listWidgetSeries->addItem( field_name );
-      column_names->push_back(field_name.toStdString());
+      auto column_name = field_name.toStdString();
+      column_names.push_back(column_name);
+      different_columns.insert(column_name);
     }
   }
 
-  int linecount = 1;
-  while (!inA.atEnd())
+  if (different_columns.size() < column_names.size())
   {
-    auto line = inA.readLine();
-    if( linecount++ < 100 )
+    if (multiple_columns_warning_)
     {
-      preview_lines += line + "\n";
+      QMessageBox::warning(nullptr, "Duplicate Column Name",
+                           "Multiple Columns have the same name.\n"
+                           "The column number will be added (as suffix) to the name.");
+      multiple_columns_warning_ = false;
     }
-    else{
-      break;
+
+    std::vector<size_t> repeated_columns;
+    for (size_t i = 0; i < column_names.size(); i++)
+    {
+      repeated_columns.clear();
+      repeated_columns.push_back(i);
+
+      for (size_t j = i + 1; j < column_names.size(); j++)
+      {
+        if (column_names[i] == column_names[j])
+        {
+          repeated_columns.push_back(j);
+        }
+      }
+      if (repeated_columns.size() > 1)
+      {
+        for (size_t index : repeated_columns)
+        {
+          QString suffix = "_";
+          suffix += QString::number(index).rightJustified(2, '0');
+          column_names[index] += suffix.toStdString();
+        }
+      }
     }
   }
+
+  QStringList column_labels;
+  for (const auto& name : column_names)
+  {
+    auto qname = QString::fromStdString( name );
+    _ui->listWidgetSeries->addItem( qname );
+    column_labels.push_back( qname );
+  }
+  _model->setColumnCount(column_labels.size());
+  _model->setHorizontalHeaderLabels(column_labels);
+
+  QStringList lines;
+
+  for( int row = 0; row <= 100 && !inA.atEnd(); row ++)
+  {
+    auto line = inA.readLine();
+    preview_lines += line + "\n";
+    lines.push_back( line );
+  }
+
+  _model->setRowCount( lines.count() );
+  for(int row = 0; row < lines.count(); row ++)
+  {
+    QVector<QStringRef> lineToken = lines[row].splitRef(_delimiter);
+    for (int j = 0; j < lineToken.size(); j++)
+    {
+      QString value = lineToken[j].toString();
+      if( auto item = _model->item(row, j) )
+      {
+        item->setText(value);
+      }
+      else{
+        _model->setItem(row, j, new QStandardItem(value));
+      }
+    }
+  }
+
   _ui->rawText->setPlainText(preview_lines);
+  _ui->tableView->resizeColumnsToContents();
 
   file.close();
 }
 
-int DataLoadCSV::launchDialog(QFile &file, std::vector<std::string> *column_names)
+int DataLoadCSV::launchDialog(QFile& file, std::vector<std::string>* column_names)
 {
   column_names->clear();
+  _ui->tabWidget->setCurrentIndex(0);
 
   QSettings settings;
   _dialog->restoreGeometry(settings.value("DataLoadCSV.geometry").toByteArray());
 
-  _ui->radioButtonIndex->setChecked( settings.value("DataLoadCSV.useIndex", false).toBool() );
-  _ui->checkBoxDateFormat->setChecked( settings.value("DataLoadCSV.useDateFormat", false).toBool() );
-  _ui->lineEditDateFormat->setText( settings.value("DataLoadCSV.dateFormat","yyyy-MM-dd hh:mm:ss").toString() );
+  _ui->radioButtonIndex->setChecked(
+      settings.value("DataLoadCSV.useIndex", false).toBool());
+  _ui->checkBoxDateFormat->setChecked(
+      settings.value("DataLoadCSV.useDateFormat", false).toBool());
+  _ui->lineEditDateFormat->setText(
+      settings.value("DataLoadCSV.dateFormat", "yyyy-MM-dd hh:mm:ss").toString());
 
   // suggest separator
   {
@@ -225,63 +312,97 @@ int DataLoadCSV::launchDialog(QFile &file, std::vector<std::string> *column_name
     int semicolon_count = first_line.count(QLatin1Char(';'));
     int space_count = first_line.count(QLatin1Char(' '));
 
-    if( comma_count > 3 && comma_count > semicolon_count )
+    if (comma_count > 3 && comma_count > semicolon_count)
     {
-      _ui->comboBox->setCurrentIndex( 0 );
-      _separator = ',';
+      _ui->comboBox->setCurrentIndex(0);
+      _delimiter = ',';
     }
-    if( semicolon_count > 3 && semicolon_count > comma_count )
+    if (semicolon_count > 3 && semicolon_count > comma_count)
     {
-      _ui->comboBox->setCurrentIndex( 1 );
-      _separator = ';';
+      _ui->comboBox->setCurrentIndex(1);
+      _delimiter = ';';
     }
-    if( space_count > 3 && comma_count == 0 && semicolon_count == 0 )
+    if (space_count > 3 && comma_count == 0 && semicolon_count == 0)
     {
-      _ui->comboBox->setCurrentIndex( 2 );
-      _separator = ' ';
+      _ui->comboBox->setCurrentIndex(2);
+      _delimiter = ' ';
     }
     file.close();
   }
 
-  // temporaryy connection
-  std::unique_ptr<QObject> pcontext (new QObject);
-  QObject *context = pcontext.get();
-  QObject::connect( _ui->comboBox, qOverload<int>( &QComboBox::currentIndexChanged ),
-                    context, [&](int index)
+
+  QString theme = settings.value("StyleSheet::theme", "light").toString();
+  auto style_path = (theme == "light" ) ? ":/resources/lua_style_light.xml" :
+                                          ":/resources/lua_style_dark.xml";
+
+  QFile fl(style_path);
+  if (fl.open(QIODevice::ReadOnly))
   {
-    switch( index )
+    auto style = new QSyntaxStyle(this);
+    if (style->load(fl.readAll()))
     {
-    case 0: _separator = ','; break;
-    case 1: _separator = ';'; break;
-    case 2: _separator = ' '; break;
+      _ui->rawText->setSyntaxStyle( style );
     }
-    parseHeader( file, column_names );
-  });
+  }
+
+  // temporary connection
+  std::unique_ptr<QObject> pcontext(new QObject);
+  QObject* context = pcontext.get();
+  QObject::connect(_ui->comboBox, qOverload<int>(&QComboBox::currentIndexChanged),
+                   context, [&](int index) {
+                     switch (index)
+                     {
+                       case 0:
+                         _delimiter = ',';
+                         break;
+                       case 1:
+                         _delimiter = ';';
+                         break;
+                       case 2:
+                         _delimiter = ' ';
+                         break;
+                     }
+                     _csvHighlighter.delimiter = _delimiter;
+                     parseHeader(file, *column_names);
+                   });
 
   // parse the header once and launch the dialog
-  parseHeader(file, column_names);
+  parseHeader(file, *column_names);
+
+  QString previous_index = settings.value("DataLoadCSV.timeIndex", "").toString();
+  if (previous_index.isEmpty() == false)
+  {
+    auto items = _ui->listWidgetSeries->findItems(previous_index, Qt::MatchExactly);
+    if( items.size() > 0 )
+    {
+      _ui->listWidgetSeries->setCurrentItem(items.front());
+    }
+  }
 
   int res = _dialog->exec();
 
   settings.setValue("DataLoadCSV.geometry", _dialog->saveGeometry());
-  settings.setValue("DataLoadCSV.useIndex", _ui->radioButtonIndex->isChecked() );
-  settings.setValue("DataLoadCSV.useDateFormat", _ui->checkBoxDateFormat->isChecked() );
-  settings.setValue("DataLoadCSV.dateFormat", _ui->lineEditDateFormat->text() );
+  settings.setValue("DataLoadCSV.useIndex", _ui->radioButtonIndex->isChecked());
+  settings.setValue("DataLoadCSV.useDateFormat", _ui->checkBoxDateFormat->isChecked());
+  settings.setValue("DataLoadCSV.dateFormat", _ui->lineEditDateFormat->text());
 
   if (res == QDialog::Rejected)
   {
     return TIME_INDEX_NOT_DEFINED;
   }
 
-  if( _ui->radioButtonIndex->isChecked() )
+  if (_ui->radioButtonIndex->isChecked())
   {
     return TIME_INDEX_GENERATED;
   }
 
-  QModelIndexList indexes = _ui->listWidgetSeries->selectionModel()->selectedIndexes();
-  if( indexes.size() == 1)
+  QModelIndexList indexes = _ui->listWidgetSeries->selectionModel()->selectedRows();
+  if (indexes.size() == 1)
   {
-    return indexes.front().row();
+    int row = indexes.front().row();
+    auto item = _ui->listWidgetSeries->item(row);
+    settings.setValue("DataLoadCSV.timeIndex", item->text());
+    return row;
   }
 
   return TIME_INDEX_NOT_DEFINED;
@@ -290,6 +411,9 @@ int DataLoadCSV::launchDialog(QFile &file, std::vector<std::string> *column_name
 bool DataLoadCSV::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_data)
 {
   bool use_provided_configuration = false;
+  multiple_columns_warning_ = true;
+
+  _fileInfo = info;
   _default_time_axis.clear();
 
   if (info->plugin_config.hasChildNodes())
@@ -298,26 +422,27 @@ bool DataLoadCSV::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_data
     xmlLoadState(info->plugin_config.firstChildElement());
   }
 
-  QFile file( info->filename);
+  QFile file(info->filename);
   std::vector<std::string> column_names;
 
   int time_index = TIME_INDEX_NOT_DEFINED;
 
-  if( !use_provided_configuration )
+  if (!use_provided_configuration)
   {
-    time_index = launchDialog( file, &column_names );
+    time_index = launchDialog(file, &column_names);
   }
   else
   {
-    parseHeader(file, &column_names );
+    parseHeader(file, column_names);
     if (_default_time_axis == "__TIME_INDEX_GENERATED__")
     {
       time_index = TIME_INDEX_GENERATED;
     }
-    else{
-      for( size_t i=0; i<column_names.size(); i++ )
+    else
+    {
+      for (size_t i = 0; i < column_names.size(); i++)
       {
-        if ( column_names[i] == _default_time_axis )
+        if (column_names[i] == _default_time_axis)
         {
           time_index = i;
           break;
@@ -326,7 +451,7 @@ bool DataLoadCSV::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_data
     }
   }
 
-  if( time_index == TIME_INDEX_NOT_DEFINED )
+  if (time_index == TIME_INDEX_NOT_DEFINED)
   {
     return false;
   }
@@ -360,6 +485,7 @@ bool DataLoadCSV::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_data
 
   std::vector<PlotData*> plots_vector;
   std::vector<StringSeries*> string_vector;
+  bool sortRequired = false;
 
   for (unsigned i = 0; i < column_names.size(); i++)
   {
@@ -372,19 +498,26 @@ bool DataLoadCSV::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_data
   }
 
   //-----------------
-  double prev_time = -std::numeric_limits<double>::max();
+  double prev_time = std::numeric_limits<double>::lowest();
   bool parse_date_format = _ui->checkBoxDateFormat->isChecked();
   QString format_string = _ui->lineEditDateFormat->text();
 
-  auto ParseNumber = [&](QString str, bool& is_number)
-  {
-    double val = str.trimmed().toDouble(&is_number);
-    if( !is_number && parse_date_format && !format_string.isEmpty() ) {
-      QDateTime ts = QDateTime::fromString(str, format_string);
+  auto ParseNumber = [&](QString str, bool& is_number) {
+    QString str_trimmed = str.trimmed();
+    double val = str_trimmed.toDouble(&is_number);
+    // handle numbers with comma instead of point as decimal separator
+    if(!is_number)
+    {
+      static QLocale locale_with_comma(QLocale::German);
+      val = locale_with_comma.toDouble(str_trimmed, &is_number);
+    }
+    if (!is_number && parse_date_format && !format_string.isEmpty())
+    {
+      QDateTime ts = QDateTime::fromString(str_trimmed, format_string);
       is_number = ts.isValid();
-      if( is_number )
+      if (is_number)
       {
-         val = ts.toMSecsSinceEpoch()/1000.0;
+        val = ts.toMSecsSinceEpoch() / 1000.0;
       }
     }
     return val;
@@ -393,23 +526,53 @@ bool DataLoadCSV::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_data
   file.open(QFile::ReadOnly);
   QTextStream in(&file);
   // remove first line (header)
-  in.readLine();
+  QString header_str = in.readLine();
+  QStringList string_items;
+  QStringList header_string_items;
+
+  SplitLine(header_str, _delimiter, header_string_items);
+  QString time_header_str;
+  QString t_str;
+  QString prev_t_str;
 
   while (!in.atEnd())
   {
     QString line = in.readLine();
-    QStringList string_items = SplitLine( line, _separator );
+    SplitLine(line, _delimiter, string_items);
+
+    // empty line? just try skipping
+    if(string_items.size() == 0)
+    {
+      continue;
+    }
 
     if (string_items.size() != column_names.size())
     {
-      auto err_msg = QString("The number of values at line %1 is %2,\n"
+        QMessageBox msgBox;
+        msgBox.setWindowTitle(tr("Error reading file"));
+        msgBox.setText(tr("The number of values at line %1 is %2,\n"
                              "but the expected number of columns is %3.\n"
                              "Aborting...")
-          .arg(linecount+1)
-          .arg(string_items.size())
-          .arg(column_names.size());
+                         .arg(linecount + 2)
+                         .arg(string_items.size())
+                         .arg(column_names.size()));
 
-      QMessageBox::warning(nullptr, "Error reading file", err_msg );
+        msgBox.setDetailedText(tr("File: \"%1\" \n\n"
+                        "Error reading file | Mismatched field count\n"
+                        "Delimiter: [%2]\n"
+                        "Header fields: %6\n"
+                        "Fields on line [%4]: %7\n\n"
+                        "File Preview:\n"
+                        "[1]%3\n"
+                        "[...]\n"
+                        "[%4]%5\n").arg(_fileInfo->filename).arg(_delimiter).arg(header_str).arg(linecount+2).arg(line).arg(column_names.size()).arg(string_items.size()));
+
+        QPushButton *abortButton = msgBox.addButton(QMessageBox::Ok);
+
+        msgBox.setIcon(QMessageBox::Warning);
+
+        msgBox.exec();
+
       return false;
     }
 
@@ -418,40 +581,81 @@ bool DataLoadCSV::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_data
     if (time_index >= 0)
     {
       bool is_number = false;
-      QString str = string_items[time_index];
-      t = ParseNumber ( str, is_number );
+      t_str = string_items[time_index];
+      t = ParseNumber(t_str, is_number);
+      time_header_str = header_string_items[time_index];
 
       if (!is_number)
       {
-          QMessageBox::StandardButton reply;
-          reply = QMessageBox::warning(nullptr, tr("Error reading file"),
-                  tr("Couldn't parse timestamp with string \"%1\" . Aborting.\n").arg(str) );
-          return false;
-      }
+        QMessageBox msgBox;
+        msgBox.setWindowTitle(tr("Error reading file"));
+        msgBox.setText(tr("Couldn't parse timestamp on line %1 with string \"%2\" . Aborting.\n").arg(linecount+1).arg(t_str));
 
-      if (prev_time > t)
-      {
-        QMessageBox::StandardButton reply;
-        reply = QMessageBox::warning(nullptr, tr("Error reading file"),
-                                     tr("Selected time in not strictly monotonic. "
-                                        "Loading will be aborted\n"));
+        msgBox.setDetailedText(tr("File: \"%1\" \n\n"
+                                "Error reading file | Couldn't parse timestamp\n"
+                                "Parsing format: [%4]\n"
+                               "Time at line %2 : [%3]\n").arg(_fileInfo->filename).arg(linecount + 1).arg(t_str).arg((parse_date_format && !format_string.isEmpty())? format_string: "None"));
+
+        QPushButton *abortButton = msgBox.addButton(QMessageBox::Ok);
+
+        msgBox.setIcon(QMessageBox::Warning);
+
+        msgBox.exec();
+
         return false;
       }
 
+      if (prev_time > t && !sortRequired)
+      {
+        QMessageBox msgBox;
+        QString timeName;
+             timeName = time_header_str;
+
+        msgBox.setWindowTitle(tr("Selected time is not monotonic"));
+        msgBox.setText(tr("PlotJuggler detected that the time in this file is non-monotonic. This may indicate an issue with the input data. Continue? (Input file will not be modified but data will be sorted by PlotJuggler)"));
+        msgBox.setDetailedText(tr("File: \"%1\" \n\n"
+                                    "Selected time is not monotonic\n"
+                                    "Time Index: %6 [%7]\n"
+                                    "Time at line %2 : %3\n"
+                                    "Time at line %4 : %5").arg(_fileInfo->filename).arg(linecount + 1).arg(prev_t_str).arg(linecount + 2).arg(t_str).arg(time_index).arg(timeName));
+
+        QPushButton *sortButton = msgBox.addButton(tr("Continue"), QMessageBox::ActionRole);
+        QPushButton *abortButton = msgBox.addButton(QMessageBox::Abort);
+        msgBox.setIcon(QMessageBox::Warning);
+        msgBox.exec();
+
+        if(msgBox.clickedButton() == abortButton)
+        {
+            return false;
+        }
+        else if (msgBox.clickedButton() == sortButton)
+        {
+            sortRequired = true;
+        }
+        else
+        {
+            return false;
+        }
+
+      }
+
       prev_time = t;
+      prev_t_str = t_str;
+
     }
 
     for (unsigned i = 0; i < string_items.size(); i++)
     {
       bool is_number = false;
       const auto& str = string_items[i];
-      double y = ParseNumber( str, is_number);
+      double y = ParseNumber(str, is_number);
       if (is_number)
       {
-        plots_vector[i]->pushBack( {t, y} );
+        plots_vector[i]->pushBack({ t, y });
       }
-      else{
-        string_vector[i]->pushBack( {t, str.toStdString()} );
+      else
+      {
+        string_vector[i]->pushBack({ t, str.toStdString() });
       }
     }
 
@@ -471,10 +675,15 @@ bool DataLoadCSV::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_data
   {
     progress_dialog.cancel();
     plot_data.clear();
+    return false;
   }
 
-  if( time_index >= 0){
-    _default_time_axis = column_names[ time_index ];
+  if (time_index >= 0)
+  {
+    _default_time_axis = column_names[time_index];
+  } else if (time_index == TIME_INDEX_GENERATED)
+  {
+    _default_time_axis = "__TIME_INDEX_GENERATED__";
   }
 
   // cleanups
@@ -482,30 +691,32 @@ bool DataLoadCSV::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_data
   {
     const auto& name = column_names[i];
     bool is_numeric = true;
-    if( plots_vector[i]->size() == 0 && string_vector[i]->size() > 0 )
+    if (plots_vector[i]->size() == 0 && string_vector[i]->size() > 0)
     {
       is_numeric = false;
     }
-    if( is_numeric )
+    if (is_numeric)
     {
-      plot_data.strings.erase( plot_data.strings.find(name) );
+      plot_data.strings.erase(plot_data.strings.find(name));      
     }
-    else{
-      plot_data.numeric.erase( plot_data.numeric.find(name) );
+    else
+    {
+      plot_data.numeric.erase(plot_data.numeric.find(name));      
     }
   }
   return true;
 }
 
-
 bool DataLoadCSV::xmlSaveState(QDomDocument& doc, QDomElement& parent_element) const
 {
   QDomElement elem = doc.createElement("default");
   elem.setAttribute("time_axis", _default_time_axis.c_str());
+  elem.setAttribute("delimiter", _ui->comboBox->currentIndex());
+
   QString date_format;
-  if( _ui->checkBoxDateFormat->isChecked() )
+  if (_ui->checkBoxDateFormat->isChecked())
   {
-    elem.setAttribute("date_format", _ui->lineEditDateFormat->text() );
+    elem.setAttribute("date_format", _ui->lineEditDateFormat->text());
   }
 
   parent_element.appendChild(elem);
@@ -521,10 +732,27 @@ bool DataLoadCSV::xmlLoadState(const QDomElement& parent_element)
     {
       _default_time_axis = elem.attribute("time_axis").toStdString();
     }
+    if (elem.hasAttribute("delimiter"))
+    {
+      int separator_index = elem.attribute("delimiter").toInt();
+      _ui->comboBox->setCurrentIndex(separator_index);
+      switch (separator_index)
+      {
+        case 0:
+          _delimiter = ',';
+          break;
+        case 1:
+          _delimiter = ';';
+          break;
+        case 2:
+          _delimiter = ' ';
+          break;
+      }
+    }
     if (elem.hasAttribute("date_format"))
     {
-      _ui->checkBoxDateFormat->setChecked( true );
-      _ui->lineEditDateFormat->setText( elem.attribute("date_format") );
+      _ui->checkBoxDateFormat->setChecked(true);
+      _ui->lineEditDateFormat->setText(elem.attribute("date_format"));
     }
   }
   return true;

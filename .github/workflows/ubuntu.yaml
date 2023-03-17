@@ -1,0 +1,36 @@
+name: ubuntu
+
+on: [push, pull_request]
+
+jobs:
+
+  ubuntu-build:
+    runs-on: ${{ matrix.ubuntu-distro }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu-distro:
+          - ubuntu-20.04
+          - ubuntu-22.04
+
+    steps:
+      - name: Sync repository
+        uses: actions/checkout@v2
+
+      - name: Install apt packages
+        run: |
+              sudo apt update && sudo apt -y install \
+                software-properties-common \
+                qtbase5-dev \
+                libqt5svg5-dev \
+                libqt5websockets5-dev \
+                libqt5opengl5-dev \
+                libqt5x11extras5-dev \
+                libprotoc-dev \
+                libzmq3-dev \
+                liblz4-dev libzstd-dev
+
+      - name: Build Plotjuggler
+        run: |
+            cmake -B build -DCMAKE_INSTALL_PREFIX=install PlotJuggler;
+            cmake --build build --target install

@@ -13,13 +13,11 @@ class StreamZMQDialog : public QDialog
   Q_OBJECT
 
 public:
-  explicit StreamZMQDialog(QWidget *parent = nullptr);
+  explicit StreamZMQDialog(QWidget* parent = nullptr);
   ~StreamZMQDialog();
 
-  Ui::DataStreamZMQ *ui;
-
+  Ui::DataStreamZMQ* ui;
 };
-
 
 class DataStreamZMQ : public PJ::DataStreamer
 {
@@ -58,6 +56,11 @@ private:
   PJ::MessageParserPtr _parser;
   std::string _socket_address;
   std::thread _receive_thread;
+  std::vector<std::string> _topic_filters;
 
   void receiveLoop();
+  bool parseMessage(const PJ::MessageRef& msg, double& timestamp);
+  void parseTopicFilters(const QString& filters);
+  void subscribeTopics();
+  void unsubscribeTopics();
 };

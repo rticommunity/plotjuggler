@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #ifndef CURVELIST_VIEW_H
 #define CURVELIST_VIEW_H
 
@@ -35,7 +41,8 @@ protected:
   std::string str;
 };
 
-enum CustomRoles{
+enum CustomRoles
+{
   Name = Qt::UserRole,
   IsGroupName = Qt::UserRole + 1,
   ToolTip = Qt::UserRole + 2
@@ -44,12 +51,12 @@ enum CustomRoles{
 class CurvesView
 {
 public:
-
   CurvesView(CurveListPanel* parent);
 
   virtual void clear() = 0;
 
-  virtual void addItem(const QString& prefix, const QString& tree_name, const QString &plot_ID) = 0;
+  virtual void addItem(const QString& prefix, const QString& tree_name,
+                       const QString& plot_ID) = 0;
 
   virtual std::vector<std::string> getSelectedNames() = 0;
 
@@ -94,7 +101,8 @@ public:
     _inserted_curves.clear();
   }
 
-  void addItem(const QString& prefix, const QString& tree_name, const QString &plot_ID) override;
+  void addItem(const QString& prefix, const QString& tree_name,
+               const QString& plot_ID) override;
 
   void refreshColumns() override;
 

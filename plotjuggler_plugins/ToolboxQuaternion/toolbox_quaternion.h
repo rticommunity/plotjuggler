@@ -6,7 +6,8 @@
 #include "PlotJuggler/plotwidget_base.h"
 #include "quaternion_to_rpy.h"
 
-namespace Ui {
+namespace Ui
+{
 class quaternion_to_RPY;
 }
 
@@ -26,8 +27,7 @@ public:
     return "Quaternion to RPY";
   }
 
-  void init( PJ::PlotDataMapRef& src_data,
-             PJ::TransformsMap& transform_map) override;
+  void init(PJ::PlotDataMapRef& src_data, PJ::TransformsMap& transform_map) override;
 
   std::pair<QWidget*, WidgetType> providedWidget() const override;
 
@@ -45,9 +45,9 @@ private slots:
 
 private:
   QWidget* _widget;
-  Ui::quaternion_to_RPY *ui;
+  Ui::quaternion_to_RPY* ui;
 
-  bool eventFilter(QObject *obj, QEvent *event) override;
+  bool eventFilter(QObject* obj, QEvent* event) override;
 
   QString _dragging_curve;
 
@@ -59,13 +59,15 @@ private:
 
   PJ::TransformsMap* _transforms = nullptr;
 
-  enum GenerateType{
+  std::unique_ptr<PlotData> _preview_data_roll;
+  std::unique_ptr<PlotData> _preview_data_pitch;
+  std::unique_ptr<PlotData> _preview_data_yaw;
+
+  enum GenerateType
+  {
     PREVIEW,
     SAVE
   };
 
-  void generateRPY(GenerateType type);
-
-  std::vector<const PlotData*> getSrcData();
+  bool generateRPY(GenerateType type);
 };
-

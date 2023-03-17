@@ -1,10 +1,17 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #ifndef PLOTWIDGET_TRANSFORMS_H
 #define PLOTWIDGET_TRANSFORMS_H
 
 #include <QDialog>
 #include "plotwidget.h"
 
-namespace Ui {
+namespace Ui
+{
 class plotwidget_transforms;
 }
 
@@ -29,7 +36,7 @@ private slots:
   void on_lineEditAlias_editingFinished();
 
 private:
-  Ui::plotwidget_transforms *ui;
+  Ui::plotwidget_transforms* ui;
 
   PlotWidget* _plotwidget;
   PlotWidget* _plotwidget_origin;
@@ -38,7 +45,7 @@ private:
 
   void setupTable();
 
-  class RowWidget: public QWidget
+  class RowWidget : public QWidget
   {
   public:
     RowWidget(QString text, QColor color);
@@ -50,7 +57,6 @@ private:
     QLabel* _text;
     QColor _color;
   };
-
 };
 
-#endif // PLOTWIDGET_TRANSFORMS_H
+#endif  // PLOTWIDGET_TRANSFORMS_H

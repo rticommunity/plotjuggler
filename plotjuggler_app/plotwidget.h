@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #ifndef DragableWidget_H
 #define DragableWidget_H
 
@@ -20,17 +26,21 @@
 
 #include "PlotJuggler/plotwidget_base.h"
 #include "customtracker.h"
+#include "colormap_editor.h"
 
 #include "transforms/transform_selector.h"
 #include "transforms/custom_function.h"
+
+#include "plot_background.h"
+
+class StatisticsDialog;
 
 class PlotWidget : public PlotWidgetBase
 {
   Q_OBJECT
 
 public:
-
-  PlotWidget(PlotDataMapRef& datamap, QWidget* parent = nullptr);
+  PlotWidget(PlotDataMapRef& datamap, QWidget* parent);
 
   void setContextMenuEnabled(bool enabled);
 
@@ -38,15 +48,13 @@ public:
 
   QDomElement xmlSaveState(QDomDocument& doc) const;
 
-  bool xmlLoadState(QDomElement& element);
+  bool xmlLoadState(QDomElement& element, bool autozoom = true);
 
   Range getVisualizationRangeY(Range range_X) const override;
 
   void setZoomRectangle(QRectF rect, bool emit_signal);
 
   void reloadPlotData();
-
-  void changeBackgroundColor(QColor color);
 
   double timeOffset() const
   {
@@ -58,12 +66,9 @@ public:
     return _mapped_data;
   }
 
-  CurveInfo* addCurveXY(std::string name_x,
-                        std::string name_y,
-                        QString curve_name = "");
+  CurveInfo* addCurveXY(std::string name_x, std::string name_y, QString curve_name = "");
 
-  CurveInfo* addCurve(const std::string& name,
-                      QColor color = Qt::transparent);
+  CurveInfo* addCurve(const std::string& name, QColor color = Qt::transparent);
 
   void setCustomAxisLimits(Range range);
 
@@ -73,11 +78,16 @@ public:
 
   bool isZoomLinkEnabled() const;
 
+  void setStatisticsTitle(QString title);
+
+  void updateStatistics(bool forceUpdate = false);
+
 protected:
   PlotDataMapRef& _mapped_data;
 
   bool eventFilter(QObject* obj, QEvent* event) override;
   void onDragEnterEvent(QDragEnterEvent* event);
+  void onDragLeaveEvent(QDragLeaveEvent* event);
   void onDropEvent(QDropEvent* event);
 
   bool canvasEventFilter(QEvent* event);
@@ -94,9 +104,9 @@ signals:
 
 public slots:
 
-  void updateCurves();
+  void updateCurves(bool reset_older_data);
 
-  void onSourceDataRemoved(const std::string &src_name);
+  void onDataSourceRemoved(const std::string& src_name);
 
   void removeAllCurves() override;
 
@@ -124,11 +134,17 @@ public slots:
 
   void on_changeDateTimeScale(bool enable);
 
-  void on_changeCurveColor(const QString &curve_name, QColor new_color);
+  void on_changeCurveColor(const QString& curve_name, QColor new_color);
+
+  void onFlipAxis();
+
+  void onBackgroundColorRequest(QString name);
+
+  void onShowDataStatistics();
 
 private slots:
 
-  //void on_changeToBuiltinTransforms(QString new_transform);
+  // void on_changeToBuiltinTransforms(QString new_transform);
 
   void setModeXY(bool enable) override;
 
@@ -147,12 +163,12 @@ private slots:
   void on_externallyResized(const QRectF& new_rect);
 
 private:
-
   QAction* _action_removeAllCurves;
   QAction* _action_edit;
   QAction* _action_formula;
   QAction* _action_split_horizontal;
   QAction* _action_split_vertical;
+  QAction* _action_data_statistics;
 
   QAction* _action_zoomOutMaximum;
   QAction* _action_zoomOutHorizontally;
@@ -162,10 +178,19 @@ private:
   QAction* _action_paste;
   QAction* _action_image_to_clipboard;
 
+  QAction* _flip_x;
+  QAction* _flip_y;
+
   CurveTracker* _tracker;
   QwtPlotGrid* _grid;
 
+  QString _statistics_window_title = "";
+
+  std::unique_ptr<BackgroundColorItem> _background_item;
+
   bool _use_date_time_scale;
+
+  StatisticsDialog* _statistics_dialog = nullptr;
 
   struct DragInfo
   {
@@ -181,7 +206,6 @@ private:
 
   DragInfo _dragging;
 
-
   void buildActions();
 
   void updateAvailableTransformers();
@@ -190,8 +214,8 @@ private:
 
   QwtSeriesWrapper* createCurveXY(const PlotData* data_x, const PlotData* data_y);
 
-  QwtSeriesWrapper* createTimeSeries(const QString& transform_ID,
-                                     const PlotData* data) override;
+  QwtSeriesWrapper* createTimeSeries(const PlotData* data,
+                                     const QString& transform_ID = {}) override;
 
   double _time_offset;
 
@@ -203,10 +227,11 @@ private:
 
   bool _context_menu_enabled;
 
-  //void updateMaximumZoomArea();
+  // void updateMaximumZoomArea();
   void rescaleEqualAxisScaling();
   void overrideCursonMove();
 
+  void setAxisScale(QwtAxisId axisId, double min, double max);
 };
 
 #endif

@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #ifndef PJ_TOOLBOX_BASE_H
 #define PJ_TOOLBOX_BASE_H
 
@@ -8,22 +14,21 @@
 #include "PlotJuggler/pj_plugin.h"
 #include "PlotJuggler/transform_function.h"
 
-namespace PJ {
-
+namespace PJ
+{
 class ToolboxPlugin : public PlotJugglerPlugin
 {
   Q_OBJECT
 
 public:
-
   ToolboxPlugin() = default;
 
-  virtual void init( PlotDataMapRef& src_data,
-                     TransformsMap& transform_map) = 0;
+  virtual void init(PlotDataMapRef& src_data, TransformsMap& transform_map) = 0;
 
   virtual ~ToolboxPlugin() = default;
 
-  enum WidgetType {
+  enum WidgetType
+  {
     FLOATING,
     FIXED
   };
@@ -39,12 +44,11 @@ signals:
   void plotCreated(std::string plot_name);
 
   void closed();
-
 };
 
 using ToolboxPluginPtr = std::shared_ptr<ToolboxPlugin>;
 
-}
+}  // namespace PJ
 
 QT_BEGIN_NAMESPACE
 #define Toolbox_iid "facontidavide.PlotJuggler3.Toolbox"

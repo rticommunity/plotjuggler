@@ -1,9 +1,17 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #include "curvetree_view.h"
 #include "curvelist_panel.h"
 #include <QFontDatabase>
 #include <QObject>
 #include <QDebug>
 #include <QToolTip>
+#include <QKeySequence>
+#include <QClipboard>
 
 class TreeWidgetItem : public QTreeWidgetItem
 {
@@ -14,11 +22,13 @@ public:
 
   bool operator<(const QTreeWidgetItem& other) const
   {
-    return doj::alphanum_impl(this->text(0).toLocal8Bit(), other.text(0).toLocal8Bit()) < 0;
+    return doj::alphanum_impl(this->text(0).toLocal8Bit(), other.text(0).toLocal8Bit()) <
+           0;
   }
 };
 
-CurveTreeView::CurveTreeView(CurveListPanel* parent) : QTreeWidget(parent), CurvesView(parent)
+CurveTreeView::CurveTreeView(CurveListPanel* parent)
+  : QTreeWidget(parent), CurvesView(parent)
 {
   setColumnCount(2);
   setEditTriggers(NoEditTriggers);
@@ -37,39 +47,48 @@ CurveTreeView::CurveTreeView(CurveListPanel* parent) : QTreeWidget(parent), Curv
   header()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
   setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
 
-  connect(this, &QTreeWidget::itemDoubleClicked, this, [this](QTreeWidgetItem *item, int column)
-          {
-            if( column == 0){
-              expandChildren(item);
+  connect(this, &QTreeWidget::itemDoubleClicked, this,
+          [this](QTreeWidgetItem* item, int column) {
+            if (column == 0)
+            {
+              expandChildren(!item->isExpanded(), item);
             }
           });
 
-  connect(selectionModel(), &QItemSelectionModel::selectionChanged, this, [this]()
-  {
+  connect(selectionModel(), &QItemSelectionModel::selectionChanged, this, [this]() {
     if (getSelectedNames().empty())
     {
       // this looks nicer
       clearFocus();
       setFocusPolicy(Qt::NoFocus);
     }
-    else {
+    else
+    {
       // this focus policy is needed to allow CurveListPanel::keyPressEvent to be called
       setFocusPolicy(Qt::ClickFocus);
     }
   });
 }
 
-void CurveTreeView::addItem(const QString &group_name, const QString& tree_name, const QString& plot_ID)
+void CurveTreeView::addItem(const QString& group_name, const QString& tree_name,
+                            const QString& plot_ID)
 {
-  QSettings settings;
+  QSettings settings; /*
+                       * This Source Code Form is subject to the terms of the Mozilla
+                       * Public License, v. 2.0. If a copy of the MPL was not distributed
+                       * with this file, You can obtain one at
+                       * https://mozilla.org/MPL/2.0/.
+                       */
+
   bool use_separator = settings.value("Preferences::use_separator", true).toBool();
 
   QStringList parts;
-  if( use_separator )
+  if (use_separator)
   {
     parts = tree_name.split('/', QString::SplitBehavior::SkipEmptyParts);
   }
-  else{
+  else
+  {
     parts.push_back(tree_name);
   }
 
@@ -78,15 +97,14 @@ void CurveTreeView::addItem(const QString &group_name, const QString& tree_name,
     return;
   }
 
-  bool prefix_is_group = tree_name.startsWith( group_name );
+  bool prefix_is_group = tree_name.startsWith(group_name);
   bool hasGroup = !group_name.isEmpty();
   auto group_parts = group_name.split('/', QString::SplitBehavior::SkipEmptyParts);
 
-  if( hasGroup && !prefix_is_group )
+  if (hasGroup && !prefix_is_group)
   {
     parts = group_parts + parts;
   }
-
 
   QTreeWidgetItem* tree_parent = this->invisibleRootItem();
 
@@ -117,11 +135,11 @@ void CurveTreeView::addItem(const QString &group_name, const QString& tree_name,
       child_item->setText(0, part);
       child_item->setText(1, is_leaf ? "-" : "");
 
-      bool isGroupCell = ( i < group_parts.size() );
+      bool isGroupCell = (i < group_parts.size());
 
       QFont font = QFontDatabase::systemFont(QFontDatabase::GeneralFont);
       font.setPointSize(_point_size);
-      //font.setBold(isGroupCell);
+      // font.setBold(isGroupCell);
       child_item->setFont(0, font);
 
       font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
@@ -133,9 +151,10 @@ void CurveTreeView::addItem(const QString &group_name, const QString& tree_name,
 
       auto current_flag = child_item->flags();
 
-      if( isGroupCell ){
+      if (isGroupCell)
+      {
         child_item->setData(0, Name, group_name);
-        child_item->setData(0, IsGroupName, (i+1) == group_parts.size());
+        child_item->setData(0, IsGroupName, (i + 1) == group_parts.size());
       }
 
       if (is_leaf)
@@ -194,7 +213,7 @@ bool CurveTreeView::applyVisibilityFilter(const QString& search_string)
   bool updated = false;
   _hidden_count = 0;
 
-  QStringList spaced_items = search_string.split(' ');
+  QStringList spaced_items = search_string.split(' ', QString::SkipEmptyParts);
 
   auto hideFunc = [&](QTreeWidgetItem* item) {
     QString name = item->data(0, Qt::UserRole).toString();
@@ -259,19 +278,21 @@ bool CurveTreeView::applyVisibilityFilter(const QString& search_string)
   return updated;
 }
 
-bool CurveTreeView::eventFilter(QObject *object, QEvent *event)
+bool CurveTreeView::eventFilter(QObject* object, QEvent* event)
 {
-  if(event->type() == QEvent::MouseMove)
+  if (event->type() == QEvent::MouseMove)
   {
-    auto mouse_event =  static_cast<QMouseEvent*>(event);
-    auto *item = itemAt(mouse_event->pos());
-    if( item ){
+    auto mouse_event = static_cast<QMouseEvent*>(event);
+    auto* item = itemAt(mouse_event->pos());
+    if (item)
+    {
       auto tooltip = item->data(0, CustomRoles::ToolTip);
-      if( tooltip.isValid() )
+      if (tooltip.isValid())
       {
-        QToolTip::showText( mapToGlobal(mouse_event->pos()), tooltip.toString() );
+        QToolTip::showText(mapToGlobal(mouse_event->pos()), tooltip.toString());
       }
-      else{
+      else
+      {
         QToolTip::hideText();
       }
     }
@@ -321,7 +342,7 @@ void CurveTreeView::removeCurve(const QString& to_be_deleted)
 void CurveTreeView::hideValuesColumn(bool hide)
 {
   setViewResizeEnabled(true);
-  setColumnHidden(1,hide);
+  setColumnHidden(1, hide);
 }
 
 void CurveTreeView::treeVisitor(std::function<void(QTreeWidgetItem*)> visitor)
@@ -341,15 +362,30 @@ void CurveTreeView::treeVisitor(std::function<void(QTreeWidgetItem*)> visitor)
   }
 }
 
-void CurveTreeView::expandChildren(QTreeWidgetItem *item)
+void CurveTreeView::keyPressEvent(QKeyEvent* event)
+{
+  if (event->matches(QKeySequence::Copy))
+  {
+    auto selected = selectedItems();
+    if (selected.size() > 0)
+    {
+      QClipboard* clipboard = QApplication::clipboard();
+      clipboard->setText(selected.front()->data(0, Name).toString());
+    }
+  }
+}
+
+void CurveTreeView::expandChildren(bool expanded, QTreeWidgetItem* item)
 {
   int childCount = item->childCount();
-  for (int i = 0; i < childCount; i++) {
+  for (int i = 0; i < childCount; i++)
+  {
     const auto child = item->child(i);
     // Recursively call the function for each child node.
-    if( !child->isExpanded() && child->childCount() > 0  ){
-      child->setExpanded(true);
-      expandChildren(child);
+    if (child->childCount() > 0)
+    {
+      child->setExpanded(expanded);
+      expandChildren(expanded, child);
     }
   }
 }

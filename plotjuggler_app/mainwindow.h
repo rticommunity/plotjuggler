@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
@@ -22,6 +28,7 @@
 #include "PlotJuggler/statepublisher_base.h"
 #include "PlotJuggler/toolbox_base.h"
 #include "PlotJuggler/datastreamer_base.h"
+#include "PlotJuggler/util/delayed_callback.hpp"
 #include "transforms/custom_function.h"
 #include "transforms/function_editor.h"
 
@@ -32,14 +39,14 @@ class MainWindow : public QMainWindow
   Q_OBJECT
 
 public:
-  explicit MainWindow(const QCommandLineParser& commandline_parser, QWidget* parent = nullptr);
+  explicit MainWindow(const QCommandLineParser& commandline_parser,
+                      QWidget* parent = nullptr);
 
   ~MainWindow();
 
   bool loadLayoutFromFile(QString filename);
   bool loadDataFromFiles(QStringList filenames);
-  bool loadDataFromFile(const FileLoadInfo& info);
-
+  std::unordered_set<std::string> loadDataFromFile(const FileLoadInfo& info);
 
   void stopStreamingPlugin();
   void configureStartedPlugin(DataStreamerPtr started_plugin);
@@ -62,7 +69,7 @@ public slots:
 
   void on_streamingSpinBox_valueChanged(int value);
 
-  void on_comboStreaming_currentIndexChanged(const QString &current_text);
+  void on_comboStreaming_currentIndexChanged(const QString& current_text);
 
   void on_splitterMoved(int, int);
 
@@ -90,9 +97,11 @@ public slots:
 
   void onRefreshCustomPlot(const std::string& plot_name);
 
-  void onCustomPlotCreated(CustomPlotPtr plot);
+  void onCustomPlotCreated(std::vector<CustomPlotPtr> plot);
 
   void onPlaybackLoop();
+
+  void linkedZoomOut();
 
 private:
   Ui::MainWindow* ui;
@@ -116,10 +125,11 @@ private:
   std::map<QString, DataLoaderPtr> _data_loader;
   std::map<QString, StatePublisherPtr> _state_publisher;
   std::map<QString, DataStreamerPtr> _data_streamer;
+  std::map<QString, ToolboxPluginPtr> _toolboxes;
 
   QString _default_streamer;
 
-  std::shared_ptr<MessageParserFactory> _message_parser_factory;
+  ParserFactories _parser_factories;
 
   std::shared_ptr<DataStreamer> _active_streamer_plugin;
 
@@ -146,7 +156,7 @@ private:
 
   QTimer* _replot_timer;
   QTimer* _publish_timer;
-  QTimer* _tracker_delaty_timer;
+  PJ::DelayedCallback _tracker_delay;
 
   QDateTime _prev_publish_time;
 
@@ -172,7 +182,7 @@ private:
   void initializeActions();
   QStringList initializePlugins(QString subdir_name);
 
-  void forEachWidget(std::function<void(PlotWidget *, PlotDocker *, int)> op);
+  void forEachWidget(std::function<void(PlotWidget*, PlotDocker*, int)> op);
   void forEachWidget(std::function<void(PlotWidget*)> op);
 
   void rearrangeGridLayout();
@@ -207,8 +217,17 @@ private:
 
   void loadStyleSheet(QString file_path);
 
+  void updateDerivedSeries();
+
+  void updateReactivePlots();
+
+  void dragEnterEvent(QDragEnterEvent* event);
+
+  void dropEvent(QDropEvent* event);
+
 signals:
   void dataSourceRemoved(const std::string& name);
+  void dataSourceUpdated(const std::string& name);
   void activateTracker(bool active);
   void stylesheetChanged(QString style_name);
 
@@ -220,7 +239,7 @@ public slots:
   void on_actionDeleteAllData_triggered();
   void on_actionClearBuffer_triggered();
 
-  void on_deleteSerieFromGroup(std::string group_name );
+  void on_deleteSerieFromGroup(std::string group_name);
 
   void on_started(const QString &streamer_name);
   void on_streamingNotificationsChanged(int active_notifications_count);
@@ -230,7 +249,7 @@ public slots:
   void on_actionReportBug_triggered();
   void on_actionCheatsheet_triggered();
   void on_actionSupportPlotJuggler_triggered();
-// TODO ?  void on_actionSaveAllPlotTabs_triggered();
+  // TODO ?  void on_actionSaveAllPlotTabs_triggered();
 
   void on_actionAbout_triggered();
   void on_actionExit_triggered();
@@ -264,6 +283,8 @@ private slots:
   void on_pushButtonSaveLayout_clicked();
   void on_pushButtonLoadDatafile_clicked();
 
+  void on_actionColorMap_Editor_triggered();
+
 private:
   QStringList readAllCurvesFromXML(QDomElement root_node);
   void loadAllPlugins(QStringList command_line_plugin_folders);
@@ -278,9 +299,9 @@ public:
   void showEvent(QShowEvent*) override;
   void leaveEvent(QEvent*) override;
   void closeEvent(QCloseEvent*) override;
+
 private:
   QWidget* _w;
 };
-
 
 #endif  // MAINWINDOW_H

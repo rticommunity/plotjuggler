@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #ifndef PLOTWIDGET_EDITOR_H
 #define PLOTWIDGET_EDITOR_H
 
@@ -8,19 +14,20 @@
 #include "color_preview.hpp"
 #include "PlotJuggler/transform_function.h"
 
-namespace Ui {
+namespace Ui
+{
 class PlotWidgetEditor;
 }
 
-class EditorRowWidget: public QWidget
+class EditorRowWidget : public QWidget
 {
   Q_OBJECT
 
 public:
   EditorRowWidget(QString text, QColor color);
 
-  void enterEvent(QEvent *ev) override;
-  void leaveEvent(QEvent *ev) override;
+  void enterEvent(QEvent* ev) override;
+  void leaveEvent(QEvent* ev) override;
 
   QString text() const;
 
@@ -43,7 +50,7 @@ class PlotwidgetEditor : public QDialog
   Q_OBJECT
 
 public:
-  explicit PlotwidgetEditor(PlotWidget* plotwidget, QWidget *parent = nullptr);
+  explicit PlotwidgetEditor(PlotWidget* plotwidget, QWidget* parent = nullptr);
   ~PlotwidgetEditor();
 
 public slots:
@@ -51,7 +58,7 @@ public slots:
 
 private slots:
 
-  void on_editColotText_textChanged(const QString &arg1);
+  void on_editColotText_textChanged(const QString& arg1);
 
   void on_radioLines_toggled(bool checked);
 
@@ -71,14 +78,14 @@ private slots:
 
   void on_listWidget_itemSelectionChanged();
 
-  void on_lineLimitMin_textChanged(const QString &text);
+  void on_lineLimitMin_textChanged(const QString& text);
 
-  void on_lineLimitMax_textChanged(const QString &text);
+  void on_lineLimitMax_textChanged(const QString& text);
 
   void on_radioSticks_toggled(bool checked);
 
 private:
-  Ui::PlotWidgetEditor *ui;
+  Ui::PlotWidgetEditor* ui;
 
   color_widgets::ColorWheel* _color_wheel;
   color_widgets::ColorPreview* _color_preview;
@@ -91,10 +98,10 @@ private:
   void setupColorWidget();
   void setupTable();
   void updateLimits();
-  void onDeleteRow(QWidget *w);
+  void onDeleteRow(QWidget* w);
   void disableWidgets();
 
   std::unordered_map<std::string, std::shared_ptr<TransformFunction>> _transforms;
 };
 
-#endif // PLOTWIDGET_EDITOR_H
+#endif  // PLOTWIDGET_EDITOR_H

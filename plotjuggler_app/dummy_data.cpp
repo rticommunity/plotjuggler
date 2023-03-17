@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #include "dummy_data.h"
 #include <QColor>
 
@@ -45,21 +51,21 @@ void BuildDummyData(PlotDataMapRef& datamap)
 
   //-------------------------------
   auto tcGroup = datamap.getOrCreateGroup("myGroup/subGroup");
-  tcGroup->setAttribute(PJ::TEXT_COLOR, QColor(Qt::blue) );
-  tcGroup->setAttribute(PJ::TOOL_TIP, QString("This is a group") );
+  tcGroup->setAttribute(PJ::TEXT_COLOR, QColor(Qt::blue));
+  tcGroup->setAttribute(PJ::TOOL_TIP, QString("This is a group"));
 
   auto& tc_default = datamap.addNumeric("color/default", tcGroup)->second;
   auto& tc_red = datamap.addNumeric("color/red", tcGroup)->second;
 
-  tc_red.setAttribute(PJ::TEXT_COLOR, QColor(Qt::red) );
+  tc_red.setAttribute(PJ::TEXT_COLOR, QColor(Qt::red));
 
   PlotData& sin_plot = datamap.addNumeric("_sin")->second;
   PlotData& cos_plot = datamap.addNumeric("_cos")->second;
   StringSeries& str_plot = datamap.addStringSeries("str_value")->second;
 
-  sin_plot.setAttribute(PJ::TOOL_TIP, QString("sine") );
-  cos_plot.setAttribute(PJ::TOOL_TIP, QString("cosine") );
-  str_plot.setAttribute(PJ::TOOL_TIP, QString("this is a string") );
+  sin_plot.setAttribute(PJ::TOOL_TIP, QString("sine"));
+  cos_plot.setAttribute(PJ::TOOL_TIP, QString("cosine"));
+  str_plot.setAttribute(PJ::TOOL_TIP, QString("this is a string"));
 
   sin_plot.setAttribute(PJ::ITALIC_FONTS, true);
 
@@ -73,10 +79,24 @@ void BuildDummyData(PlotDataMapRef& datamap)
     tc_default.pushBack(PlotData::Point(t + 20, indx));
     tc_default.pushBack(PlotData::Point(t + 20, indx));
 
-    switch( indx%3 ){
-    case 0: str_plot.pushBack( {t + 20, "Blue"} ); break;
-    case 1: str_plot.pushBack( {t + 20, "Red"} ); break;
-    case 2: str_plot.pushBack( {t + 20, "Green"} ); break;
+    switch (indx % 3)
+    {
+      case 0:
+        str_plot.pushBack({ t + 20, "Blue" });
+        break;
+      case 1:
+        str_plot.pushBack({ t + 20, "Red" });
+        break;
+      case 2:
+        str_plot.pushBack({ t + 20, "Green" });
+        break;
     }
+  }
+
+  PlotDataXY& octagon = datamap.addScatterXY("octagon_trajectory")->second;
+  for (unsigned i = 0; i < 8; i++)
+  {
+    double angle = double(i) * M_PI / 4;
+    octagon.pushBack(PlotData::Point(cos(angle), sin(angle)));
   }
 }

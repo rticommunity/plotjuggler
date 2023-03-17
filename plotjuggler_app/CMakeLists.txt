@@ -18,6 +18,10 @@ QT5_WRAP_UI ( UI_SRC
     preferences_dialog.ui
     suggest_dialog.ui
     new_release_dialog.ui
+    multifile_prefix.ui
+    colormap_editor.ui
+    colormap_selector.ui
+    statistics_dialog.ui
 
     plot_docker_toolbar.ui
     plotwidget_editor.ui
@@ -28,6 +32,7 @@ QT5_WRAP_UI ( UI_SRC
 
     transforms/first_derivative.ui
     transforms/moving_average_filter.ui
+    transforms/moving_rms.ui
     transforms/outlier_removal.ui
     transforms/integral_transform.ui
 
@@ -39,7 +44,11 @@ SET( PLOtJUGGLER_SRC
     cheatsheet/cheatsheet_dialog.cpp
 
     customtracker.cpp
+    multifile_prefix.cpp
+    colormap_editor.cpp
+    colormap_selector.cpp
 
+    color_map.cpp
     curvelist_panel.cpp
     curvelist_view.cpp
     curvetree_view.cpp
@@ -54,10 +63,12 @@ SET( PLOtJUGGLER_SRC
     plotwidget_editor.cpp
     plotwidget_transforms.cpp
     plot_docker.cpp
-#    plotmagnifier.cpp
+    plot_docker_toolbar.cpp
     preferences_dialog.cpp
     point_series_xy.cpp
 #    plotzoomer.cpp
+    plot_background.cpp
+    statistics_dialog.cpp
 
     suggest_dialog.cpp
 #    timeseries_qwt.cpp
@@ -66,13 +77,14 @@ SET( PLOtJUGGLER_SRC
     tree_completer.h
 
     transforms/custom_function.cpp
-    transforms/custom_timeseries.cpp
     transforms/function_editor.cpp
     transforms/transform_selector.cpp
     transforms/lua_custom_function.cpp
     transforms/moving_average_filter.cpp
+    transforms/moving_rms.cpp
     transforms/outlier_removal.cpp
     transforms/integral_transform.cpp
+    transforms/absolute_transform.cpp
 
     transforms/first_derivative.cpp
     transforms/scale_transform.cpp
@@ -141,6 +153,7 @@ target_link_libraries(plotjuggler
     qt_advanced_docking
     plotjuggler_base
     plotjuggler_qwt
+    QCodeEditor
     )
 
 if(COMPILING_WITH_CATKIN)
@@ -155,7 +168,7 @@ if(COMPILING_WITH_CATKIN)
 
 elseif(COMPILING_WITH_AMENT)
 
-    target_link_libraries(plotjuggler ${ament_index_cpp_LIBRARIES} )
+    ament_target_dependencies(plotjuggler ament_index_cpp rclcpp)
 
     install(TARGETS plotjuggler
         DESTINATION lib/${PROJECT_NAME} )

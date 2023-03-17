@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #ifndef STATEPUBLISHER_TEMPLATE_H
 #define STATEPUBLISHER_TEMPLATE_H
 
@@ -9,15 +15,13 @@
 #include "PlotJuggler/plotdata.h"
 #include "PlotJuggler/pj_plugin.h"
 
-namespace PJ {
-
+namespace PJ
+{
 class StatePublisher : public PlotJugglerPlugin
 {
-
   Q_OBJECT
 
 public:
-
   /// True if started
   virtual bool enabled() const = 0;
 
@@ -30,7 +34,8 @@ public:
 
   virtual ~StatePublisher() = default;
 
-  void setDataMap(const PlotDataMapRef* datamap) {
+  void setDataMap(const PlotDataMapRef* datamap)
+  {
     _datamap = datamap;
   }
 
@@ -49,7 +54,7 @@ protected:
 
 using StatePublisherPtr = std::shared_ptr<StatePublisher>;
 
-}
+}  // namespace PJ
 
 QT_BEGIN_NAMESPACE
 #define StatePublisher_iid "facontidavide.PlotJuggler3.StatePublisher"

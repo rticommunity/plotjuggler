@@ -1,3 +1,9 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #include "customtracker.h"
 #include "qwt_series_data.h"
 #include "qwt_plot.h"
@@ -117,7 +123,8 @@ void CurveTracker::setPosition(const QPointF& position)
 
     if (!_marker[i]->symbol() || _marker[i]->symbol()->brush().color() != color)
     {
-      QwtSymbol* sym = new QwtSymbol(QwtSymbol::Ellipse, color, QPen(Qt::black), QSize(5, 5));
+      QwtSymbol* sym =
+          new QwtSymbol(QwtSymbol::Ellipse, color, QPen(Qt::black), QSize(5, 5));
       _marker[i]->setSymbol(sym);
     }
 
@@ -159,7 +166,10 @@ void CurveTracker::setPosition(const QPointF& position)
         while (whitespaces-- > 0)
           value.prepend("&nbsp;");
 
-        line = QString("<font color=%1>%2 : %3</font>").arg(color.name()).arg(value).arg(curve->title().text());
+        line = QString("<font color=%1>%2 : %3</font>")
+                   .arg(color.name())
+                   .arg(value)
+                   .arg(curve->title().text());
       }
 
       text_lines.insert(std::make_pair(val, line));

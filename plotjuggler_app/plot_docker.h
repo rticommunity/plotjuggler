@@ -1,61 +1,19 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at https://mozilla.org/MPL/2.0/.
+ */
+
 #ifndef PLOT_DOCKER_H
 #define PLOT_DOCKER_H
 
 #include <QDomElement>
 #include <QXmlStreamReader>
-#include "Qads/DockManager.h"
-#include "Qads/DockWidget.h"
-#include "Qads/DockAreaWidget.h"
-#include "Qads/DockAreaTitleBar.h"
-#include "Qads/DockAreaTabBar.h"
-#include "Qads/FloatingDockContainer.h"
-#include "Qads/DockComponentsFactory.h"
 #include "PlotJuggler/plotdata.h"
 #include "plotwidget.h"
-#include "ui_plot_docker_toolbar.h"
+#include "plot_docker_toolbar.h"
 
-class DraggableToolbar : public QWidget
-{
-  Q_OBJECT
-
-public:
-  explicit DraggableToolbar(ads::CDockWidget* parent);
-  ~DraggableToolbar() override;
-
-  QLabel* label(){ return ui->label;}
-  QPushButton* buttonFullscreen() { return ui->buttonFullscreen; }
-  QPushButton* buttonClose() { return ui->buttonClose; }
-  QPushButton* buttonSplitHorizontal() { return ui->buttonSplitHorizontal; }
-  QPushButton* buttonSplitVertical() { return ui->buttonSplitVertical; }
-
-  void toggleFullscreen();
-
-  bool isFullscreen() const{
-    return _fullscreen_mode;
-  }
-
-  bool eventFilter(QObject* object,QEvent* event) override;
-
-public slots:
-
-  void on_stylesheetChanged(QString theme);
-
-private:
-  void mousePressEvent(QMouseEvent* ev) override;
-  void mouseReleaseEvent(QMouseEvent* ev) override;
-  void mouseMoveEvent(QMouseEvent* ev) override;
-  void enterEvent(QEvent *) override;
-  void leaveEvent(QEvent *) override;
-
-  ads::CDockWidget* _parent;
-  Ui::DraggableToolbar *ui;
-  bool _fullscreen_mode;
-
-  QIcon _expand_icon;
-  QIcon _collapse_icon;
-};
-
-class DockWidget: public ads::CDockWidget
+class DockWidget : public ads::CDockWidget
 {
   Q_OBJECT
 
@@ -66,7 +24,7 @@ public:
 
   PlotWidget* plotWidget();
 
-  DraggableToolbar* toolBar();
+  DockToolbar* toolBar();
 
 public slots:
   DockWidget* splitHorizontal();
@@ -76,7 +34,7 @@ public slots:
 private:
   PlotWidget* _plot_widget = nullptr;
 
-  DraggableToolbar* _toolbar;
+  DockToolbar* _toolbar;
 
   PlotDataMapRef& _datamap;
 
@@ -84,13 +42,14 @@ signals:
   void undoableChange();
 };
 
-class PlotDocker: public ads::CDockManager
+class PlotDocker : public ads::CDockManager
 {
-
-Q_OBJECT
+  Q_OBJECT
 
 public:
-  PlotDocker(QString name, PlotDataMapRef &datamap, QWidget* parent = nullptr);
+  PlotDocker(QString name, PlotDataMapRef& datamap, QWidget* parent = nullptr);
+
+  ~PlotDocker();
 
   QString name() const;
 
@@ -115,7 +74,6 @@ public slots:
   void on_stylesheetChanged(QString theme);
 
 private:
-
   void restoreSplitter(QDomElement elem, DockWidget* widget);
 
   QString _name;
@@ -127,8 +85,6 @@ signals:
   void plotWidgetAdded(PlotWidget*);
 
   void undoableChange();
-
 };
 
-
-#endif // PLOT_DOCKER_H
+#endif  // PLOT_DOCKER_H
