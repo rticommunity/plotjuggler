@@ -259,7 +259,7 @@ endif()
 
 add_subdirectory( plotjuggler_app )
 
-if(PJ_ENABLE_MAC_APP)
+if(APPLE AND PJ_ENABLE_MAC_APP)
     # Copy plugins inside the .app folder.
     # Plugins have to be installed after the plotjuggler_app
     set(PJ_PLUGIN_INSTALL_DIRECTORY "${PJ_PLUGIN_INSTALL_DIRECTORY}/plotjuggler.app/Contents/MacOS")

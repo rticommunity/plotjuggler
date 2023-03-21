@@ -51,7 +51,11 @@ enum PlotAttribute
 
   // Color of the curve in the plot.
   // Type: QColor
-  COLOR_HINT
+  COLOR_HINT,
+
+  // DDS entity alive view
+  // Type: boolean. Default: false
+  DDS_ALIVE
 };
 
 using Attributes = std::unordered_map<PlotAttribute, QVariant>;
@@ -64,6 +68,7 @@ inline bool CheckType(PlotAttribute attr, const QVariant& value)
     case COLOR_HINT:
       return value.type() == QVariant::Color;
     case ITALIC_FONTS:
+    case DDS_ALIVE:
       return value.type() == QVariant::Bool;
     case TOOL_TIP:
       return value.type() == QVariant::String;
