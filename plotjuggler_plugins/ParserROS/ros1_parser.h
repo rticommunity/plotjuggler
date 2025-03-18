@@ -4,11 +4,10 @@
 
 #include <QCheckBox>
 #include <QDebug>
+#include <QSettings>
 #include <string>
 
-#include "rosx_introspection/ros_parser.hpp"
 #include "ros_parser.h"
-#include "PlotJuggler/fmt/format.h"
 
 using namespace PJ;
 
@@ -27,22 +26,18 @@ public:
   }
   const char* encoding() const override
   {
-    return "ros1";
+    return "ros1msg";
   }
 
   MessageParserPtr createParser(const std::string& topic_name,
-                                const std::string& type_name,
-                                const std::string& schema,
+                                const std::string& type_name, const std::string& schema,
                                 PlotDataMapRef& data) override
   {
-    if(schema.empty())
-    {
-      throw std::runtime_error("ParserFactoryROS1 requires a schema (message definition)");
-    }
-    return std::make_shared<ParserROS>(topic_name,  type_name, schema,
-                                       new RosMsgParser::ROS_Deserializer(), data);
+    auto parser = std::make_shared<ParserROS>(topic_name, type_name, schema,
+                                              new RosMsgParser::ROS_Deserializer(), data);
+    QSettings settings;
+    parser->enableTruncationCheck(
+        settings.value("Preferences::truncation_check", true).toBool());
+    return parser;
   }
 };
-
-
-

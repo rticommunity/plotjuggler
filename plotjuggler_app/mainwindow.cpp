@@ -6,7 +6,6 @@
 
 #include <functional>
 #include <stdio.h>
-#include <numeric>
 
 #include <QApplication>
 #include <QActionGroup>
@@ -42,7 +41,6 @@
 #include "curvelist_panel.h"
 #include "tabbedplotwidget.h"
 #include "PlotJuggler/plotdata.h"
-#include "qwt_plot_canvas.h"
 #include "transforms/function_editor.h"
 #include "transforms/lua_custom_function.h"
 #include "utils.h"
@@ -100,7 +98,7 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
   if (commandline_parser.isSet("enabled_plugins"))
   {
     _enabled_plugins =
-        commandline_parser.value("enabled_plugins").split(";", QString::SkipEmptyParts);
+        commandline_parser.value("enabled_plugins").split(";", PJ::SkipEmptyParts);
     // Treat the command-line parameter  '--enabled_plugins *' to mean all plugings are
     // enabled
     if ((_enabled_plugins.size() == 1) && (_enabled_plugins.contains("*")))
@@ -111,7 +109,7 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
   if (commandline_parser.isSet("disabled_plugins"))
   {
     _disabled_plugins =
-        commandline_parser.value("disabled_plugins").split(";", QString::SkipEmptyParts);
+        commandline_parser.value("disabled_plugins").split(";", PJ::SkipEmptyParts);
   }
 
   _curvelist_widget = new CurveListPanel(_mapped_plot_data, _transform_functions, this);
@@ -145,16 +143,18 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
   QSettings settings;
 
   ui->playbackLoop->setText("");
-  ui->pushButtonZoomOut->setText("");
-  ui->pushButtonPlay->setText("");
-  ui->pushButtonUseDateTime->setText("");
-  ui->pushButtonActivateGrid->setText("");
-  ui->pushButtonRatio->setText("");
-  ui->pushButtonLink->setText("");
-  ui->pushButtonTimeTracker->setText("");
-  ui->pushButtonLoadDatafile->setText("");
-  ui->pushButtonRemoveTimeOffset->setText("");
-  ui->pushButtonLegend->setText("");
+  ui->buttonZoomOut->setText("");
+  ui->buttonPlay->setText("");
+  ui->buttonUseDateTime->setText("");
+  ui->buttonActivateGrid->setText("");
+  ui->buttonRatio->setText("");
+  ui->buttonLink->setText("");
+  ui->buttonTimeTracker->setText("");
+  ui->buttonLoadDatafile->setText("");
+  ui->buttonRemoveTimeOffset->setText("");
+  ui->buttonLegend->setText("");
+
+  ui->widgetStatusBar->setHidden(true);
 
   if (commandline_parser.isSet("buffer_size"))
   {
@@ -247,7 +247,7 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
 
   //------------ Load plugins -------------
   auto plugin_extra_folders =
-      commandline_parser.value("plugin_folders").split(";", QString::SkipEmptyParts);
+      commandline_parser.value("plugin_folders").split(";", PJ::SkipEmptyParts);
 
   _default_streamer = commandline_parser.value("start_streamer");
 
@@ -295,25 +295,23 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
   // qDebug() << "restoreGeometry";
 
   bool activate_grid = settings.value("MainWindow.activateGrid", false).toBool();
-  ui->pushButtonActivateGrid->setChecked(activate_grid);
+  ui->buttonActivateGrid->setChecked(activate_grid);
 
   bool zoom_link_active = settings.value("MainWindow.buttonLink", true).toBool();
-  ui->pushButtonLink->setChecked(zoom_link_active);
+  ui->buttonLink->setChecked(zoom_link_active);
 
   bool ration_active = settings.value("MainWindow.buttonRatio", true).toBool();
-  ui->pushButtonRatio->setChecked(ration_active);
+  ui->buttonRatio->setChecked(ration_active);
 
   int streaming_buffer_value =
       settings.value("MainWindow.streamingBufferValue", 5).toInt();
   ui->streamingSpinBox->setValue(streaming_buffer_value);
 
   bool datetime_display = settings.value("MainWindow.dateTimeDisplay", false).toBool();
-  ui->pushButtonUseDateTime->setChecked(datetime_display);
+  ui->buttonUseDateTime->setChecked(datetime_display);
 
   bool remove_time_offset = settings.value("MainWindow.removeTimeOffset", true).toBool();
-  ui->pushButtonRemoveTimeOffset->setChecked(remove_time_offset);
-
-  //  ui->widgetOptions->setVisible(ui->pushButtonOptions->isChecked());
+  ui->buttonRemoveTimeOffset->setChecked(remove_time_offset);
 
   if (settings.value("MainWindow.hiddenFileFrame", false).toBool())
   {
@@ -346,7 +344,7 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
       settings.value("MainWindow.timeTrackerSetting", (int)CurveTracker::VALUE).toInt();
   _tracker_param = static_cast<CurveTracker::Parameter>(tracker_setting);
 
-  ui->pushButtonTimeTracker->setIcon(_tracker_button_icons[_tracker_param]);
+  ui->buttonTimeTracker->setIcon(_tracker_button_icons[_tracker_param]);
 
   forEachWidget([&](PlotWidget* plot) { plot->configureTracker(_tracker_param); });
 
@@ -513,7 +511,7 @@ void MainWindow::initializeActions()
   connect(&_redo_shortcut, &QShortcut::activated, this, &MainWindow::onRedoInvoked);
   connect(&_streaming_shortcut, &QShortcut::activated, this,
           &MainWindow::on_streamingToggled);
-  connect(&_playback_shotcut, &QShortcut::activated, ui->pushButtonPlay,
+  connect(&_playback_shotcut, &QShortcut::activated, ui->buttonPlay,
           &QPushButton::toggle);
   connect(&_fullscreen_shortcut, &QShortcut::activated, this,
           &MainWindow::onActionFullscreenTriggered);
@@ -625,7 +623,18 @@ QStringList MainWindow::initializePlugins(QString directory_name)
 
     QPluginLoader pluginLoader(pluginsDir.absoluteFilePath(filename), this);
 
-    QObject* plugin = pluginLoader.instance();
+    QObject* plugin;
+    try
+    {
+      plugin = pluginLoader.instance();
+    }
+    catch (std::runtime_error& err)
+    {
+      qDebug() << QString("%1: skipping, because it threw the following exception: %2")
+                      .arg(filename)
+                      .arg(err.what());
+      continue;
+    }
     if (plugin && dynamic_cast<PlotJugglerPlugin*>(plugin))
     {
       auto class_name = pluginLoader.metaData().value("className").toString();
@@ -758,8 +767,12 @@ QStringList MainWindow::initializePlugins(QString directory_name)
       }
       else if (message_parser)
       {
-        _parser_factories.insert(
-            std::make_pair(message_parser->encoding(), message_parser));
+        QStringList encodings = QString(message_parser->encoding()).split(";");
+        auto parser_ptr = std::shared_ptr<ParserFactoryPlugin>(message_parser);
+        for (const QString& encoding : encodings)
+        {
+          _parser_factories[encoding] = parser_ptr;
+        }
       }
       else if (streamer)
       {
@@ -827,11 +840,25 @@ QStringList MainWindow::initializePlugins(QString directory_name)
         connect(toolbox, &ToolboxPlugin::closed, this,
                 [=]() { ui->widgetStack->setCurrentIndex(0); });
 
-        connect(toolbox, &ToolboxPlugin::plotCreated, this, [=](std::string name) {
-          _curvelist_widget->addCustom(QString::fromStdString(name));
-          _curvelist_widget->updateAppearance();
-          _curvelist_widget->clearSelections();
-        });
+        connect(toolbox, &ToolboxPlugin::importData, this,
+                [this](PlotDataMapRef& new_data, bool remove_old) {
+                  importPlotDataMap(new_data, remove_old);
+                  updateDataAndReplot(true);
+                });
+
+        connect(toolbox, &ToolboxPlugin::plotCreated, this,
+                [=](std::string name, bool is_custom) {
+                  if (is_custom)
+                  {
+                    _curvelist_widget->addCustom(QString::fromStdString(name));
+                  }
+                  else
+                  {
+                    _curvelist_widget->addCurve(name);
+                  }
+                  _curvelist_widget->updateAppearance();
+                  _curvelist_widget->clearSelections();
+                });
       }
     }
     else
@@ -846,6 +873,11 @@ QStringList MainWindow::initializePlugins(QString directory_name)
   for (auto& [name, streamer] : _data_streamer)
   {
     streamer->setParserFactories(&_parser_factories);
+  }
+
+  for (auto& [name, toolbox] : _toolboxes)
+  {
+    toolbox->setParserFactories(&_parser_factories);
   }
 
   for (auto& [name, loader] : _data_loader)
@@ -947,7 +979,7 @@ void MainWindow::onPlotAdded(PlotWidget* plot)
   connect(&_time_offset, SIGNAL(valueChanged(double)), plot,
           SLOT(on_changeTimeOffset(double)));
 
-  connect(ui->pushButtonUseDateTime, &QPushButton::toggled, plot,
+  connect(ui->buttonUseDateTime, &QPushButton::toggled, plot,
           &PlotWidget::on_changeDateTimeScale);
 
   connect(plot, &PlotWidget::curvesDropped, _curvelist_widget,
@@ -964,16 +996,16 @@ void MainWindow::onPlotAdded(PlotWidget* plot)
   connect(plot, &PlotWidget::rectChanged, this, &MainWindow::onPlotZoomChanged);
 
   plot->on_changeTimeOffset(_time_offset.get());
-  plot->on_changeDateTimeScale(ui->pushButtonUseDateTime->isChecked());
-  plot->activateGrid(ui->pushButtonActivateGrid->isChecked());
+  plot->on_changeDateTimeScale(ui->buttonUseDateTime->isChecked());
+  plot->activateGrid(ui->buttonActivateGrid->isChecked());
   plot->enableTracker(!isStreamingActive());
-  plot->setKeepRatioXY(ui->pushButtonRatio->isChecked());
+  plot->setKeepRatioXY(ui->buttonRatio->isChecked());
   plot->configureTracker(_tracker_param);
 }
 
 void MainWindow::onPlotZoomChanged(PlotWidget* modified_plot, QRectF new_range)
 {
-  if (ui->pushButtonLink->isChecked())
+  if (ui->buttonLink->isChecked())
   {
     auto visitor = [=](PlotWidget* plot) {
       if (plot != modified_plot && !plot->isEmpty() && !plot->isXYPlot() &&
@@ -1024,7 +1056,7 @@ QDomDocument MainWindow::xmlSaveState() const
   doc.appendChild(root);
 
   QDomElement relative_time = doc.createElement("use_relative_time_offset");
-  relative_time.setAttribute("enabled", ui->pushButtonRemoveTimeOffset->isChecked());
+  relative_time.setAttribute("enabled", ui->buttonRemoveTimeOffset->isChecked());
   root.appendChild(relative_time);
 
   return doc;
@@ -1157,7 +1189,7 @@ bool MainWindow::xmlLoadState(QDomDocument state_document)
   if (!relative_time.isNull())
   {
     bool remove_offset = (relative_time.attribute("enabled") == QString("1"));
-    ui->pushButtonRemoveTimeOffset->setChecked(remove_offset);
+    ui->buttonRemoveTimeOffset->setChecked(remove_offset);
   }
   return true;
 }
@@ -1286,7 +1318,7 @@ void MainWindow::deleteAllData()
   _mapped_plot_data.clear();
   _transform_functions.clear();
   _curvelist_widget->clear();
-  _loaded_datafiles.clear();
+  _loaded_datafiles_history.clear();
   _undo_states.clear();
   _redo_states.clear();
 
@@ -1360,7 +1392,7 @@ bool MainWindow::loadDataFromFiles(QStringList filenames)
   filenames.sort();
   std::map<QString, QString> filename_prefix;
 
-  if (filenames.size() > 1)
+  if (filenames.size() > 1 || ui->checkBoxAddPrefixAndMerge->isChecked())
   {
     DialogMultifilePrefix dialog(filenames, this);
     int ret = dialog.exec();
@@ -1374,6 +1406,7 @@ bool MainWindow::loadDataFromFiles(QStringList filenames)
   std::unordered_set<std::string> previous_names = _mapped_plot_data.getAllNames();
 
   QStringList loaded_filenames;
+  _loaded_datafiles_previous.clear();
 
   for (int i = 0; i < filenames.size(); i++)
   {
@@ -1400,7 +1433,7 @@ bool MainWindow::loadDataFromFiles(QStringList filenames)
   {
     data_replaced_entirely = true;
   }
-  else
+  else if (!ui->checkBoxAddPrefixAndMerge->isChecked())
   {
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(
@@ -1421,11 +1454,13 @@ bool MainWindow::loadDataFromFiles(QStringList filenames)
 
   // special case when only the last file should be remembered
   if (loaded_filenames.size() == 1 && data_replaced_entirely &&
-      _loaded_datafiles.size() > 1)
+      _loaded_datafiles_history.size() > 1)
   {
-    std::swap(_loaded_datafiles.back(), _loaded_datafiles.front());
-    _loaded_datafiles.resize(1);
+    std::swap(_loaded_datafiles_history.back(), _loaded_datafiles_history.front());
+    _loaded_datafiles_history.resize(1);
   }
+
+  ui->buttonReloadData->setEnabled(!loaded_filenames.empty());
 
   if (loaded_filenames.size() > 0)
   {
@@ -1438,7 +1473,7 @@ bool MainWindow::loadDataFromFiles(QStringList filenames)
 
 std::unordered_set<std::string> MainWindow::loadDataFromFile(const FileLoadInfo& info)
 {
-  ui->pushButtonPlay->setChecked(false);
+  ui->buttonPlay->setChecked(false);
 
   const QString extension = QFileInfo(info.filename).suffix().toLower();
 
@@ -1491,7 +1526,8 @@ std::unordered_set<std::string> MainWindow::loadDataFromFile(const FileLoadInfo&
     QString plugin_name =
         QInputDialog::getItem(this, tr("QInputDialog::getItem()"),
                               tr("Select the loader to use:"), names, 0, false, &ok);
-    if (ok && !plugin_name.isEmpty() && (_enabled_plugins.size() == 0 || _enabled_plugins.contains(plugin_name)))
+    if (ok && !plugin_name.isEmpty() &&
+        (_enabled_plugins.size() == 0 || _enabled_plugins.contains(plugin_name)))
     {
       dataloader = _data_loader[plugin_name];
       last_plugin_name_used = plugin_name;
@@ -1516,6 +1552,11 @@ std::unordered_set<std::string> MainWindow::loadDataFromFile(const FileLoadInfo&
       PlotDataMapRef mapped_data;
       FileLoadInfo new_info = info;
 
+      if (info.plugin_config.hasChildNodes())
+      {
+        dataloader->xmlLoadState(info.plugin_config.firstChildElement());
+      }
+
       if (dataloader->readDataFromFile(&new_info, mapped_data))
       {
         AddPrefixToPlotData(info.prefix.toStdString(), mapped_data.numeric);
@@ -1526,11 +1567,12 @@ std::unordered_set<std::string> MainWindow::loadDataFromFile(const FileLoadInfo&
 
         QDomElement plugin_elem = dataloader->xmlSaveState(new_info.plugin_config);
         new_info.plugin_config.appendChild(plugin_elem);
+        _loaded_datafiles_previous.push_back(new_info);
 
         bool duplicate = false;
 
         // substitute an old item of _loaded_datafiles or push_back another item.
-        for (auto& prev_loaded : _loaded_datafiles)
+        for (auto& prev_loaded : _loaded_datafiles_history)
         {
           if (prev_loaded.filename == new_info.filename &&
               prev_loaded.prefix == new_info.prefix)
@@ -1543,7 +1585,7 @@ std::unordered_set<std::string> MainWindow::loadDataFromFile(const FileLoadInfo&
 
         if (!duplicate)
         {
-          _loaded_datafiles.push_back(new_info);
+          _loaded_datafiles_history.push_back(new_info);
         }
       }
     }
@@ -1604,12 +1646,12 @@ void MainWindow::on_buttonStreamingPause_toggled(bool paused)
     paused = true;
   }
 
-  ui->pushButtonRemoveTimeOffset->setEnabled(paused);
+  ui->buttonRemoveTimeOffset->setEnabled(paused);
   ui->widgetPlay->setEnabled(paused);
 
-  if (!paused && ui->pushButtonPlay->isChecked())
+  if (!paused && ui->buttonPlay->isChecked())
   {
-    ui->pushButtonPlay->setChecked(false);
+    ui->buttonPlay->setChecked(false);
   }
 
   forEachWidget([&](PlotWidget* plot) {
@@ -1768,6 +1810,13 @@ void MainWindow::enableStreamingNotificationsButton(bool enabled)
   }
 }
 
+void MainWindow::setStatusBarMessage(QString message)
+{
+  ui->statusLabel->setText(message);
+  ui->widgetStatusBar->setHidden(message.isEmpty());
+  QTimer::singleShot(7000, this, [this]() { ui->widgetStatusBar->setHidden(true); });
+}
+
 void MainWindow::loadStyleSheet(QString file_path)
 {
   QFile styleFile(file_path);
@@ -1853,7 +1902,7 @@ void MainWindow::dropEvent(QDropEvent* event)
 
 void MainWindow::on_stylesheetChanged(QString theme)
 {
-  ui->pushButtonLoadDatafile->setIcon(LoadSvg(":/resources/svg/import.svg", theme));
+  ui->buttonLoadDatafile->setIcon(LoadSvg(":/resources/svg/import.svg", theme));
   ui->buttonStreamingPause->setIcon(LoadSvg(":/resources/svg/pause.svg", theme));
   if (ui->buttonStreamingNotifications->isEnabled())
   {
@@ -1868,19 +1917,19 @@ void MainWindow::on_stylesheetChanged(QString theme)
   ui->buttonRecentData->setIcon(LoadSvg(":/resources/svg/right-arrow.svg", theme));
   ui->buttonRecentLayout->setIcon(LoadSvg(":/resources/svg/right-arrow.svg", theme));
 
-  ui->pushButtonZoomOut->setIcon(LoadSvg(":/resources/svg/zoom_max.svg", theme));
+  ui->buttonZoomOut->setIcon(LoadSvg(":/resources/svg/zoom_max.svg", theme));
   ui->playbackLoop->setIcon(LoadSvg(":/resources/svg/loop.svg", theme));
-  ui->pushButtonPlay->setIcon(LoadSvg(":/resources/svg/play_arrow.svg", theme));
-  ui->pushButtonUseDateTime->setIcon(LoadSvg(":/resources/svg/datetime.svg", theme));
-  ui->pushButtonActivateGrid->setIcon(LoadSvg(":/resources/svg/grid.svg", theme));
-  ui->pushButtonRatio->setIcon(LoadSvg(":/resources/svg/ratio.svg", theme));
+  ui->buttonPlay->setIcon(LoadSvg(":/resources/svg/play_arrow.svg", theme));
+  ui->buttonUseDateTime->setIcon(LoadSvg(":/resources/svg/datetime.svg", theme));
+  ui->buttonActivateGrid->setIcon(LoadSvg(":/resources/svg/grid.svg", theme));
+  ui->buttonRatio->setIcon(LoadSvg(":/resources/svg/ratio.svg", theme));
 
-  ui->pushButtonLoadLayout->setIcon(LoadSvg(":/resources/svg/import.svg", theme));
-  ui->pushButtonSaveLayout->setIcon(LoadSvg(":/resources/svg/export.svg", theme));
+  ui->buttonLoadLayout->setIcon(LoadSvg(":/resources/svg/import.svg", theme));
+  ui->buttonSaveLayout->setIcon(LoadSvg(":/resources/svg/export.svg", theme));
 
-  ui->pushButtonLink->setIcon(LoadSvg(":/resources/svg/link.svg", theme));
-  ui->pushButtonRemoveTimeOffset->setIcon(LoadSvg(":/resources/svg/t0.svg", theme));
-  ui->pushButtonLegend->setIcon(LoadSvg(":/resources/svg/legend.svg", theme));
+  ui->buttonLink->setIcon(LoadSvg(":/resources/svg/link.svg", theme));
+  ui->buttonRemoveTimeOffset->setIcon(LoadSvg(":/resources/svg/t0.svg", theme));
+  ui->buttonLegend->setIcon(LoadSvg(":/resources/svg/legend.svg", theme));
 
   ui->buttonStreamingOptions->setIcon(LoadSvg(":/resources/svg/settings_cog.svg", theme));
 }
@@ -2058,11 +2107,6 @@ bool MainWindow::loadLayoutFromFile(QString filename)
     FileLoadInfo info;
     info.filename = datafile_path;
     info.prefix = datafile_elem.attribute("prefix");
-
-    QDomElement datasources_elem = datafile_elem.firstChildElement("selected_"
-                                                                   "datasources");
-    QString topics_list = datasources_elem.attribute("value");
-    info.selected_datasources = topics_list.split(";", QString::SkipEmptyParts);
 
     auto plugin_elem = datafile_elem.firstChildElement("plugin");
     info.plugin_config.appendChild(info.plugin_config.importNode(plugin_elem, true));
@@ -2260,7 +2304,7 @@ bool MainWindow::loadLayoutFromFile(QString filename)
 
 void MainWindow::linkedZoomOut()
 {
-  if (ui->pushButtonLink->isChecked())
+  if (ui->buttonLink->isChecked())
   {
     for (const auto& it : TabbedPlotWidget::instances())
     {
@@ -2368,7 +2412,7 @@ void MainWindow::updateTimeOffset()
   auto range = calculateVisibleRangeX();
   double min_time = std::get<0>(range);
 
-  const bool remove_offset = ui->pushButtonRemoveTimeOffset->isChecked();
+  const bool remove_offset = ui->buttonRemoveTimeOffset->isChecked();
   if (remove_offset && min_time != std::numeric_limits<double>::max())
   {
     _time_offset.set(min_time);
@@ -2402,7 +2446,14 @@ void MainWindow::updateDataAndReplot(bool replot_hidden_tabs)
       _curvelist_widget->refreshColumns();
     }
 
-    _mapped_plot_data.setMaximumRangeX(ui->streamingSpinBox->value());
+    if (ui->streamingSpinBox->value() == ui->streamingSpinBox->maximum())
+    {
+      _mapped_plot_data.setMaximumRangeX(std::numeric_limits<double>::max());
+    }
+    else
+    {
+      _mapped_plot_data.setMaximumRangeX(ui->streamingSpinBox->value());
+    }
   }
 
   const bool is_streaming_active = isStreamingActive();
@@ -2454,6 +2505,18 @@ void MainWindow::on_streamingSpinBox_valueChanged(int value)
 {
   double real_value = value;
 
+  if (value == ui->streamingSpinBox->maximum())
+  {
+    real_value = std::numeric_limits<double>::max();
+    ui->streamingSpinBox->setStyleSheet("QSpinBox { color: red; }");
+    ui->streamingSpinBox->setSuffix("=inf");
+  }
+  else
+  {
+    ui->streamingSpinBox->setStyleSheet("QSpinBox { color: black; }");
+    ui->streamingSpinBox->setSuffix(" sec");
+  }
+
   if (isStreamingActive() == false)
   {
     return;
@@ -2472,7 +2535,7 @@ void MainWindow::on_actionExit_triggered()
   this->close();
 }
 
-void MainWindow::on_pushButtonRemoveTimeOffset_toggled(bool)
+void MainWindow::on_buttonRemoveTimeOffset_toggled(bool)
 {
   updateTimeOffset();
   updatedDisplayTime();
@@ -2489,9 +2552,9 @@ void MainWindow::updatedDisplayTime()
 {
   QLineEdit* timeLine = ui->displayTime;
   const double relative_time = _tracker_time - _time_offset.get();
-  if (ui->pushButtonUseDateTime->isChecked())
+  if (ui->buttonUseDateTime->isChecked())
   {
-    if (ui->pushButtonRemoveTimeOffset->isChecked())
+    if (ui->buttonRemoveTimeOffset->isChecked())
     {
       QTime time = QTime::fromMSecsSinceStartOfDay(std::round(relative_time * 1000.0));
       timeLine->setText(time.toString("HH:mm::ss.zzz"));
@@ -2515,7 +2578,7 @@ void MainWindow::updatedDisplayTime()
   timeLine->setFixedWidth(std::max(100, width));
 }
 
-void MainWindow::on_pushButtonActivateGrid_toggled(bool checked)
+void MainWindow::on_buttonActivateGrid_toggled(bool checked)
 {
   forEachWidget([checked](PlotWidget* plot) {
     plot->activateGrid(checked);
@@ -2523,7 +2586,7 @@ void MainWindow::on_pushButtonActivateGrid_toggled(bool checked)
   });
 }
 
-void MainWindow::on_pushButtonRatio_toggled(bool checked)
+void MainWindow::on_buttonRatio_toggled(bool checked)
 {
   forEachWidget([checked](PlotWidget* plot) {
     plot->setKeepRatioXY(checked);
@@ -2531,7 +2594,7 @@ void MainWindow::on_pushButtonRatio_toggled(bool checked)
   });
 }
 
-void MainWindow::on_pushButtonPlay_toggled(bool checked)
+void MainWindow::on_buttonPlay_toggled(bool checked)
 {
   if (checked)
   {
@@ -2638,10 +2701,10 @@ void MainWindow::on_streamingNotificationsChanged(int active_count)
   }
 }
 
-void MainWindow::on_pushButtonUseDateTime_toggled(bool checked)
+void MainWindow::on_buttonUseDateTime_toggled(bool checked)
 {
   static bool first = true;
-  if (checked && ui->pushButtonRemoveTimeOffset->isChecked())
+  if (checked && ui->buttonRemoveTimeOffset->isChecked())
   {
     if (first)
     {
@@ -2652,12 +2715,12 @@ void MainWindow::on_pushButtonUseDateTime_toggled(bool checked)
                                   "This message will be shown only once."));
       first = false;
     }
-    ui->pushButtonRemoveTimeOffset->setChecked(false);
+    ui->buttonRemoveTimeOffset->setChecked(false);
   }
   updatedDisplayTime();
 }
 
-void MainWindow::on_pushButtonTimeTracker_pressed()
+void MainWindow::on_buttonTimeTracker_pressed()
 {
   if (_tracker_param == CurveTracker::LINE_ONLY)
   {
@@ -2671,7 +2734,7 @@ void MainWindow::on_pushButtonTimeTracker_pressed()
   {
     _tracker_param = CurveTracker::LINE_ONLY;
   }
-  ui->pushButtonTimeTracker->setIcon(_tracker_button_icons[_tracker_param]);
+  ui->buttonTimeTracker->setIcon(_tracker_button_icons[_tracker_param]);
 
   forEachWidget([&](PlotWidget* plot) {
     plot->configureTracker(_tracker_param);
@@ -2693,12 +2756,12 @@ void MainWindow::closeEvent(QCloseEvent* event)
   settings.setValue("MainWindow.geometry", saveGeometry());
   settings.setValue("MainWindow.state", saveState());
 
-  settings.setValue("MainWindow.activateGrid", ui->pushButtonActivateGrid->isChecked());
+  settings.setValue("MainWindow.activateGrid", ui->buttonActivateGrid->isChecked());
   settings.setValue("MainWindow.removeTimeOffset",
-                    ui->pushButtonRemoveTimeOffset->isChecked());
-  settings.setValue("MainWindow.dateTimeDisplay", ui->pushButtonUseDateTime->isChecked());
-  settings.setValue("MainWindow.buttonLink", ui->pushButtonLink->isChecked());
-  settings.setValue("MainWindow.buttonRatio", ui->pushButtonRatio->isChecked());
+                    ui->buttonRemoveTimeOffset->isChecked());
+  settings.setValue("MainWindow.dateTimeDisplay", ui->buttonUseDateTime->isChecked());
+  settings.setValue("MainWindow.buttonLink", ui->buttonLink->isChecked());
+  settings.setValue("MainWindow.buttonRatio", ui->buttonRatio->isChecked());
 
   settings.setValue("MainWindow.streamingBufferValue", ui->streamingSpinBox->value());
   settings.setValue("MainWindow.timeTrackerSetting", (int)_tracker_param);
@@ -2765,7 +2828,7 @@ void MainWindow::onPlaybackLoop()
   {
     if (!ui->playbackLoop->isChecked())
     {
-      ui->pushButtonPlay->setChecked(false);
+      ui->buttonPlay->setChecked(false);
     }
     _tracker_time = ui->timeSlider->getMinimum();
   }
@@ -2777,6 +2840,7 @@ void MainWindow::onPlaybackLoop()
   //////////////////
   updatedDisplayTime();
   onUpdateLeftTableValues();
+  updateReactivePlots();
 
   for (auto& it : _state_publisher)
   {
@@ -2983,7 +3047,7 @@ QDir::currentPath()).toString();
   }
 }*/
 
-void MainWindow::on_pushButtonLoadDatafile_clicked()
+void MainWindow::on_buttonLoadDatafile_clicked()
 {
   if (_data_loader.empty())
   {
@@ -3041,7 +3105,7 @@ void MainWindow::on_pushButtonLoadDatafile_clicked()
   }
 }
 
-void MainWindow::on_pushButtonLoadLayout_clicked()
+void MainWindow::on_buttonLoadLayout_clicked()
 {
   QSettings settings;
 
@@ -3063,7 +3127,7 @@ void MainWindow::on_pushButtonLoadLayout_clicked()
   settings.setValue("MainWindow.lastLayoutDirectory", directory_path);
 }
 
-void MainWindow::on_pushButtonSaveLayout_clicked()
+void MainWindow::on_buttonSaveLayout_clicked()
 {
   QDomDocument doc = xmlSaveState();
 
@@ -3147,18 +3211,13 @@ void MainWindow::on_pushButtonSaveLayout_clicked()
   {
     QDomElement loaded_list = doc.createElement("previouslyLoaded_Datafiles");
 
-    for (const auto& loaded : _loaded_datafiles)
+    for (const auto& loaded : _loaded_datafiles_history)
     {
       QString loaded_datafile = QDir(directory_path).relativeFilePath(loaded.filename);
 
       QDomElement file_elem = doc.createElement("fileInfo");
       file_elem.setAttribute("filename", loaded_datafile);
       file_elem.setAttribute("prefix", loaded.prefix);
-
-      QDomElement datasources_elem = doc.createElement("selected_datasources");
-      QString topics_list = loaded.selected_datasources.join(";");
-      datasources_elem.setAttribute("value", topics_list);
-      file_elem.appendChild(datasources_elem);
 
       file_elem.appendChild(loaded.plugin_config.firstChild());
       loaded_list.appendChild(file_elem);
@@ -3208,7 +3267,7 @@ void MainWindow::on_pushButtonSaveLayout_clicked()
   if (file.open(QIODevice::WriteOnly))
   {
     QTextStream stream(&file);
-    stream << doc.toString() << Qt_endl;
+    stream << doc.toString() << "\n";
   }
 }
 
@@ -3225,7 +3284,6 @@ void MainWindow::onActionFullscreenTriggered()
   _minimized = !_minimized;
 
   ui->leftMainWindowFrame->setVisible(!_minimized);
-  //  ui->widgetOptions->setVisible(!_minimized && ui->pushButtonOptions->isChecked());
   ui->widgetTimescale->setVisible(!_minimized);
   ui->menuBar->setVisible(!_minimized);
 
@@ -3295,7 +3353,7 @@ void MainWindow::on_actionPreferences_triggered()
 
   QString theme = settings.value("Preferences::theme").toString();
 
-  if (theme != prev_style)
+  if (!theme.isEmpty() && theme != prev_style)
   {
     loadStyleSheet(tr(":/resources/stylesheet_%1.qss").arg(theme));
   }
@@ -3327,7 +3385,7 @@ void MainWindow::on_actionLoadStyleSheet_triggered()
   settings.setValue("MainWindow.loadStyleSheetDirectory", directory_path);
 }
 
-void MainWindow::on_pushButtonLegend_clicked()
+void MainWindow::on_buttonLegend_clicked()
 {
   switch (_labels_status)
   {
@@ -3359,7 +3417,7 @@ void MainWindow::on_pushButtonLegend_clicked()
   this->forEachWidget(visitor);
 }
 
-void MainWindow::on_pushButtonZoomOut_clicked()
+void MainWindow::on_buttonZoomOut_clicked()
 {
   linkedZoomOut();
   onUndoableChange();
@@ -3521,4 +3579,20 @@ void MainWindow::on_actionColorMap_Editor_triggered()
 {
   ColorMapEditor dialog;
   dialog.exec();
+}
+
+void MainWindow::on_buttonReloadData_clicked()
+{
+  const auto prev_infos = std::move(_loaded_datafiles_previous);
+  _loaded_datafiles_previous.clear();
+  for (const auto& info : prev_infos)
+  {
+    loadDataFromFile(info);
+  }
+  ui->buttonReloadData->setEnabled(!_loaded_datafiles_previous.empty());
+}
+
+void MainWindow::on_buttonCloseStatus_clicked()
+{
+  ui->widgetStatusBar->hide();
 }

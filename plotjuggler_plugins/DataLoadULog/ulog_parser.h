@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <string.h>
+#include <cstdint>
 
 #include "string_view.hpp"
 
@@ -72,6 +73,8 @@ public:
       float val_real;
     } value;
     FormatType val_type;
+
+    bool readFromBuffer(const char* message);
   };
 
   struct Format

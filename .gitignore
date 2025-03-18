@@ -68,3 +68,4 @@ _deps
 
 # Clangd
 .cache
+/snap/*

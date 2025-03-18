@@ -13,23 +13,28 @@
 #include <QDesktopWidget>
 #include <QFontDatabase>
 #include <QSettings>
+#include <QPushButton>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QJsonDocument>
 #include <QDir>
+#include <QDialog>
 #include <QUuid>
+#include <QDesktopServices>
 
 #include "PlotJuggler/transform_function.h"
 #include "transforms/first_derivative.h"
+#include "transforms/samples_count.h"
 #include "transforms/scale_transform.h"
 #include "transforms/moving_average_filter.h"
+#include "transforms/moving_variance.h"
 #include "transforms/moving_rms.h"
 #include "transforms/outlier_removal.h"
 #include "transforms/integral_transform.h"
 #include "transforms/absolute_transform.h"
 
-#include "nlohmann_parsers.h"
 #include "new_release_dialog.h"
+#include "ui_changelog_dialog.h"
 
 #ifdef COMPILED_WITH_CATKIN
 #include <ros/ros.h>
@@ -54,12 +59,34 @@ inline int GetVersionNumber(QString str)
   return major * 10000 + minor * 100 + patch;
 }
 
+void ShowChangelogDialog()
+{
+  QDialog* dialog = new QDialog();
+  auto ui = new Ui::ChangelogDialog();
+  ui->setupUi(dialog);
+
+  QObject::connect(ui->buttonChangelog, &QPushButton::clicked, dialog, [](bool) {
+    QDesktopServices::openUrl(QUrl("https://community.rti.com/page/plotjuggler-rti-edition"));
+    QSettings settings;
+    settings.setValue("Changelog/first", false);
+  });
+
+  QObject::connect(ui->checkBox, &QCheckBox::toggled, dialog, [](bool toggle) {
+    QSettings settings;
+    settings.setValue("Changelog/dont", toggle);
+  });
+
+  dialog->exec();
+}
+
 void OpenNewReleaseDialog(QNetworkReply* reply, QString pixmapfile)
 {
   if (reply->error())
   {
+    qDebug() << "reply error";
     return;
   }
+
   QString answer = reply->readAll();
   QJsonDocument document = QJsonDocument::fromJson(answer.toUtf8());
   QJsonObject data = document.object();
@@ -89,7 +116,7 @@ QPixmap getFunnySplashscreen()
   srand(time(nullptr));
 
   auto getNum = []() {
-    const int last_image_num = 89;
+    const int last_image_num = 94;
     int n = rand() % (last_image_num + 2);
     if (n > last_image_num)
     {
@@ -134,8 +161,7 @@ QPixmap getFunnySplashscreen()
 std::vector<std::string> MergeArguments(const std::vector<std::string>& args)
 {
 #ifdef PJ_DEFAULT_ARGS
-  auto default_cmdline_args =
-      QString(PJ_DEFAULT_ARGS).split(" ", QString::SkipEmptyParts);
+  auto default_cmdline_args = QString(PJ_DEFAULT_ARGS).split(" ", PJ::SkipEmptyParts);
 
   std::vector<std::string> new_args;
   new_args.push_back(args.front());
@@ -220,11 +246,13 @@ int main(int argc, char* argv[])
   TransformFactory::registerTransform<OutlierRemovalFilter>();
   TransformFactory::registerTransform<IntegralTransform>();
   TransformFactory::registerTransform<AbsoluteTransform>();
+  TransformFactory::registerTransform<MovingVarianceFilter>();
+  TransformFactory::registerTransform<SamplesCountFilter>();
   //---------------------------
 
   QCommandLineParser parser;
-  parser.setApplicationDescription("PlotJuggler: the time series visualization tool that "
-                                   "you deserve ");
+  parser.setApplicationDescription("PlotJuggler: the time series visualization"
+                                   " tool that you deserve ");
   parser.addVersionOption();
   parser.addHelpOption();
 
@@ -310,11 +338,10 @@ int main(int argc, char* argv[])
                                     "file_name (no extension)");
   parser.addOption(start_streamer);
 
-  QCommandLineOption window_title(QStringList() << "window_title",
-                                  "Set the window title",
+  QCommandLineOption window_title(QStringList() << "window_title", "Set the window title",
                                   "window_title");
   parser.addOption(window_title);
-  
+
   parser.process(*qApp);
 
   if (parser.isSet(publish_option) && !parser.isSet(layout_option))
@@ -390,13 +417,7 @@ int main(int argc, char* argv[])
   request.setUrl(QUrl(latest_release_url));
   manager.get(request);
 
-  QString uuid = settings.value("UUID", QUuid::createUuid().toString()).toString();
-  settings.setValue("UUID", uuid);
-
-  request.setUrl(QUrl(QString("https://l4g9l4.deta.dev/check_updates/%1").arg(uuid)));
-  manager.get(request);
-
-  MainWindow* w = nullptr;
+  MainWindow* window = nullptr;
 
   /*
    * You, fearless code reviewer, decided to start a journey into my source code.
@@ -411,8 +432,15 @@ int main(int argc, char* argv[])
    * data. Please don't do it.
    */
 
-  if (!parser.isSet(nosplash_option) &&
-      !(parser.isSet(loadfile_option) || parser.isSet(layout_option)))
+  bool first_changelog = settings.value("Changelog/first", true).toBool();
+  bool dont_changelog = settings.value("Changelog/dont", false).toBool();
+
+  if (first_changelog && !dont_changelog)
+  {
+    ShowChangelogDialog();
+  }
+  else if (!parser.isSet(nosplash_option) &&
+           !(parser.isSet(loadfile_option) || parser.isSet(layout_option)))
   // if(false) // if you uncomment this line, a kitten will die somewhere in the world.
   {
     QPixmap main_pixmap;
@@ -432,6 +460,7 @@ int main(int argc, char* argv[])
     {
       main_pixmap = getFunnySplashscreen();
     }
+
     QSplashScreen splash(main_pixmap, Qt::WindowStaysOnTopHint);
     QDesktopWidget* desktop = QApplication::desktop();
     const int scrn = desktop->screenNumber();
@@ -447,7 +476,7 @@ int main(int argc, char* argv[])
       app.processEvents();
     }
 
-    w = new MainWindow(parser);
+    window = new MainWindow(parser);
 
     deadline = QDateTime::currentDateTime().addMSecs(3000);
     while (QDateTime::currentDateTime() < deadline && !splash.isHidden())
@@ -455,17 +484,36 @@ int main(int argc, char* argv[])
       app.processEvents();
     }
   }
-  else
+
+  if (!window)
   {
-    w = new MainWindow(parser);
+    window = new MainWindow(parser);
   }
 
-  w->show();
+  window->show();
 
   if (parser.isSet(start_streamer))
   {
-    w->on_buttonStreamingStart_clicked();
+    window->on_buttonStreamingStart_clicked();
   }
+
+  QNetworkAccessManager manager_message;
+  QObject::connect(&manager_message, &QNetworkAccessManager::finished,
+                   [window](QNetworkReply* reply) {
+                     if (reply->error())
+                     {
+                       return;
+                     }
+                     QString answer = reply->readAll();
+                     QJsonDocument document = QJsonDocument::fromJson(answer.toUtf8());
+                     QJsonObject data = document.object();
+                     QString message = data["message"].toString();
+                     window->setStatusBarMessage(message);
+                   });
+
+  QNetworkRequest request_message;
+  request_message.setUrl(QUrl("https://fastapi-example-7kz3.onrender.com"));
+  manager_message.get(request_message);
 
   return app.exec();
 }

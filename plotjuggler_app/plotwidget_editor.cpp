@@ -64,6 +64,14 @@ PlotwidgetEditor::PlotwidgetEditor(PlotWidget* plotwidget, QWidget* parent)
   {
     ui->radioSticks->setChecked(true);
   }
+  else if (_plotwidget->curveStyle() == PlotWidgetBase::STEPS)
+  {
+    ui->radioSteps->setChecked(true);
+  }
+  else if (_plotwidget->curveStyle() == PlotWidgetBase::STEPSINV)
+  {
+    ui->radioStepsInv->setChecked(true);
+  }
   else
   {
     ui->radioBoth->setChecked(true);
@@ -305,6 +313,22 @@ void PlotwidgetEditor::on_radioSticks_toggled(bool checked)
   if (checked)
   {
     _plotwidget->changeCurvesStyle(PlotWidgetBase::STICKS);
+  }
+}
+
+void PlotwidgetEditor::on_radioSteps_toggled(bool checked)
+{
+  if (checked)
+  {
+    _plotwidget->changeCurvesStyle(PlotWidgetBase::STEPS);
+  }
+}
+
+void PlotwidgetEditor::on_radioStepsInv_toggled(bool checked)
+{
+  if (checked)
+  {
+    _plotwidget->changeCurvesStyle(PlotWidgetBase::STEPSINV);
   }
 }
 

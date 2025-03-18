@@ -70,7 +70,8 @@ public:
 
     if (need_sorting)
     {
-      auto it = std::upper_bound(_points.begin(), _points.end(), p, TimeCompare);
+      auto it = std::upper_bound(_points.begin(), _points.end(), p,
+                                 [](const auto& a, const auto& b) { return a.x < b.x; });
       PlotDataBase<double, Value>::insert(it, std::move(p));
     }
     else
@@ -83,9 +84,13 @@ public:
 private:
   void trimRange()
   {
-    while (_points.size() > 2 && (_points.back().x - _points.front().x) > _max_range_x)
+    if (_max_range_x < std::numeric_limits<double>::max() && !_points.empty())
     {
-      this->popFront();
+      auto const back_point_x = _points.back().x;
+      while (_points.size() > 2 && (back_point_x - _points.front().x) > _max_range_x)
+      {
+        this->popFront();
+      }
     }
   }
 

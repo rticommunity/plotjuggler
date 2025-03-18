@@ -8,19 +8,14 @@
 
 #include <QtPlugin>
 #include <QApplication>
-#include <array>
-#include <unordered_map>
-#include <unordered_set>
-#include <functional>
 #include <map>
-#include <set>
 #include "PlotJuggler/plotdata.h"
 #include "PlotJuggler/pj_plugin.h"
 
 namespace PJ
 {
 /*
- * A messgaeParser is a clas that is able to convert a message received by
+ * A messageParser is a class that is able to convert a message received by
  * a DataStreamer plugin into data in PlotDataMapRef.
  *
  * - Each data Source has its own instance of MessageParser
@@ -49,8 +44,7 @@ public:
   }
 
   template <typename T>
-  explicit MessageRef(const std::vector<T>& vect)
-    : MessageRef(vect.data(), vect.size())
+  explicit MessageRef(const std::vector<T>& vect) : MessageRef(vect.data(), vect.size())
   {
   }
 
@@ -59,7 +53,7 @@ public:
     return _ptr;
   }
 
-  uint8_t* data() // this is bad and will be removed
+  uint8_t* data()  // this is bad and will be removed
   {
     return const_cast<uint8_t*>(_ptr);
   }
@@ -109,6 +103,16 @@ public:
     return _clamp_large_arrays;
   }
 
+  virtual bool useEmbeddedTimestamp() const
+  {
+    return _use_embedded_timestamp;
+  }
+
+  virtual void enableEmbeddedTimestamp(bool enable)
+  {
+    _use_embedded_timestamp = enable;
+  }
+
 protected:
   PlotDataMapRef& _plot_data;
   std::string _topic_name;
@@ -122,9 +126,11 @@ protected:
   {
     return _plot_data.getOrCreateStringSeries(key);
   }
+
 private:
   bool _clamp_large_arrays = false;
   unsigned _max_array_size = 10000;
+  bool _use_embedded_timestamp = false;
 };
 
 using MessageParserPtr = std::shared_ptr<MessageParser>;
@@ -137,6 +143,7 @@ public:
 
   // provide an identifier of the provided encoding.
   // example "ros1", "ros2", "json", "protobuf", etc.
+  // If more than one, separate the name using semicolon
   virtual const char* encoding() const = 0;
 
   // create an instance of MessageParser, already configured to
@@ -148,7 +155,6 @@ public:
 };
 
 using ParserFactories = std::map<QString, std::shared_ptr<ParserFactoryPlugin>>;
-
 
 }  // namespace PJ
 

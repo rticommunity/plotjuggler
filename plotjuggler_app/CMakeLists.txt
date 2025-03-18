@@ -18,6 +18,7 @@ QT5_WRAP_UI ( UI_SRC
     preferences_dialog.ui
     suggest_dialog.ui
     new_release_dialog.ui
+    changelog_dialog.ui
     multifile_prefix.ui
     colormap_editor.ui
     colormap_selector.ui
@@ -32,9 +33,12 @@ QT5_WRAP_UI ( UI_SRC
 
     transforms/first_derivative.ui
     transforms/moving_average_filter.ui
+    transforms/moving_variance.ui
     transforms/moving_rms.ui
     transforms/outlier_removal.ui
     transforms/integral_transform.ui
+    transforms/scale_transform.ui
+    transforms/samples_count.ui
 
     cheatsheet/cheatsheet_dialog.ui
     )
@@ -82,9 +86,11 @@ SET( PLOtJUGGLER_SRC
     transforms/lua_custom_function.cpp
     transforms/moving_average_filter.cpp
     transforms/moving_rms.cpp
+    transforms/moving_variance.cpp
     transforms/outlier_removal.cpp
     transforms/integral_transform.cpp
     transforms/absolute_transform.cpp
+    transforms/samples_count.cpp
 
     transforms/first_derivative.cpp
     transforms/scale_transform.cpp

@@ -523,9 +523,10 @@ void PlotWidget::onDragEnterEvent(QDragEnterEvent* event)
   }
 }
 
-void PlotWidget::onDragLeaveEvent(QDragLeaveEvent* event){
-    _dragging.mode = DragInfo::NONE;
-    _dragging.curves.clear();
+void PlotWidget::onDragLeaveEvent(QDragLeaveEvent* event)
+{
+  _dragging.mode = DragInfo::NONE;
+  _dragging.curves.clear();
 }
 
 void PlotWidget::onDropEvent(QDropEvent*)
@@ -613,13 +614,15 @@ void PlotWidget::onDropEvent(QDropEvent*)
     emit curveListChanged();
 
     QSettings settings;
-    bool autozoom_curve_added = settings.value("Preferences::autozoom_curve_added",true).toBool();
-    if(autozoom_curve_added || noCurves)
+    bool autozoom_curve_added =
+        settings.value("Preferences::autozoom_curve_added", true).toBool();
+    if (autozoom_curve_added || noCurves)
     {
-        zoomOut(autozoom_curve_added);
+      zoomOut(autozoom_curve_added);
     }
-    else{
-        replot();
+    else
+    {
+      replot();
     }
   }
   _dragging.mode = DragInfo::NONE;
@@ -669,6 +672,14 @@ QDomElement PlotWidget::xmlSaveState(QDomDocument& doc) const
   else if (curveStyle() == PlotWidgetBase::STICKS)
   {
     plot_el.setAttribute("style", "Sticks");
+  }
+  else if (curveStyle() == PlotWidgetBase::STEPS)
+  {
+    plot_el.setAttribute("style", "Steps");
+  }
+  else if (curveStyle() == PlotWidgetBase::STEPSINV)
+  {
+    plot_el.setAttribute("style", "StepsInv");
   }
 
   for (auto& it : curveList())
@@ -869,6 +880,14 @@ bool PlotWidget::xmlLoadState(QDomElement& plot_widget, bool autozoom)
     {
       changeCurvesStyle(PlotWidgetBase::STICKS);
     }
+    else if (style == "Steps")
+    {
+      changeCurvesStyle(PlotWidgetBase::STEPS);
+    }
+    else if (style == "StepsInv")
+    {
+      changeCurvesStyle(PlotWidgetBase::STEPSINV);
+    }
   }
 
   QString bg_data = plot_widget.attribute("background_data");
@@ -905,7 +924,7 @@ bool PlotWidget::xmlLoadState(QDomElement& plot_widget, bool autozoom)
     }
   }
 
-  if(autozoom)
+  if (autozoom)
   {
     updateMaximumZoomArea();
   }
@@ -1593,7 +1612,7 @@ bool PlotWidget::canvasEventFilter(QEvent* event)
     case QEvent::MouseButtonPress: {
       if (_dragging.mode != DragInfo::NONE)
       {
-          return true;  // don't pass to canvas().
+        return true;  // don't pass to canvas().
       }
 
       QMouseEvent* mouse_event = static_cast<QMouseEvent*>(event);

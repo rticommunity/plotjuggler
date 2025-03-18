@@ -31,10 +31,9 @@ public:
     return "DataLoad CSV";
   }
 
-  virtual bool xmlSaveState(QDomDocument& doc,
-                            QDomElement& parent_element) const override;
+  bool xmlSaveState(QDomDocument& doc, QDomElement& parent_element) const override;
 
-  virtual bool xmlLoadState(const QDomElement& parent_element) override;
+  bool xmlLoadState(const QDomElement& parent_element) override;
 
 protected:
   void parseHeader(QFile& file, std::vector<std::string>& ordered_names);
@@ -54,10 +53,9 @@ private:
 
   QDialog* _dialog;
   Ui::DialogCSV* _ui;
-  DateTimeHelp *_dateTime_dialog;
+  DateTimeHelp* _dateTime_dialog;
 
-  QStandardItemModel *_model;
+  QStandardItemModel* _model;
 
   bool multiple_columns_warning_ = true;
-
 };

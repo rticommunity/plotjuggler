@@ -2,6 +2,205 @@
 Changelog for package plotjuggler
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.9.2 (2024-05-08)
+------------------
+* Save NlohmannParser (JSON) settings (`#971 <https://github.com/facontidavide/PlotJuggler/issues/971>`_)
+* Fix infinite streaming buffer regression (`#953 <https://github.com/facontidavide/PlotJuggler/issues/953>`_)
+  Co-authored-by: paul <paul@WorkLaptop>
+* fix warning and includes
+* updated fastcdr
+* Added support for empty messages (`#960 <https://github.com/facontidavide/PlotJuggler/issues/960>`_)
+* add a parser for the Line Protocol (InfluxDB)
+* Fixed the value dereference for ULog information messages (`#946 <https://github.com/facontidavide/PlotJuggler/issues/946>`_)
+* adding pre-commit check in CI
+* fmt updated to 10.2.1
+* apply clang format and move PlotJuggler/fmt
+* moved KissFFT
+* pre-commit
+* Contributors: Davide Faconti, Declan Mullen, Jonathan, Michel Jansson, Paul, ubaldot
+
+3.9.1 (2024-02-20)
+------------------
+* embed zstd 1.5.5
+* updated lz4 1.9.4
+* PlotJuggler with Fast-CDR-2.x.x (`#932 <https://github.com/facontidavide/PlotJuggler/issues/932>`_)
+* fix ROS2 parser bug
+* fix `#935 <https://github.com/facontidavide/PlotJuggler/issues/935>`_ and `#934 <https://github.com/facontidavide/PlotJuggler/issues/934>`_
+* Add Sample Count to transforms
+* fix compilation in Windows
+* Contributors: Davide Faconti, Manuel Valch
+
+3.9.0 (2024-02-04)
+------------------
+* new status bar with messages from the internet
+* Merge branch 'ulog_improvement'
+* new memes
+* quick file reload!
+* transforms have now default values from previous
+* add icons to dialog Delete Series
+* cleanup and fix ULOG
+* add ULOG parameters as 1 sample timeseries
+* fix issue `#929 <https://github.com/facontidavide/PlotJuggler/issues/929>`_ : numerical truncation
+* bypass truncation check
+* Fixed parsing JointState messages (`#927 <https://github.com/facontidavide/PlotJuggler/issues/927>`_)
+* Contributors: Davide Faconti, Martin Pecka
+
+3.8.10 (2024-01-26)
+-------------------
+* Fix issue #924: crash when loading rosbag with std_msgs/Empty
+* Allow ZMQ plugin to work as server
+* Link against Abseil for macOS builds & improve macOS compile docs `#845 <https://github.com/facontidavide/PlotJuggler/issues/845>`_ (`#905 <https://github.com/facontidavide/PlotJuggler/issues/905>`_)
+* fix issue in CSV `#926 <https://github.com/facontidavide/PlotJuggler/issues/926>`_
+* attempt to match ambiguous ros msg within package before using external known type (`#922 <https://github.com/facontidavide/PlotJuggler/issues/922>`_)
+* Contributors: Davide Faconti, Manuel Valch, Will MacCormack, rugged-robotics
+
+3.8.9 (2024-01-24)
+------------------
+* fix bug `#924 <https://github.com/facontidavide/PlotJuggler/issues/924>`_ (messages with no fields)
+* Bugfix: Wrong curvestyle is preselected (`#921 <https://github.com/facontidavide/PlotJuggler/issues/921>`_)
+* Contributors: Davide Faconti, Simon Sagmeister
+
+3.8.8 (2024-01-18)
+------------------
+* new update screen
+* Update README.md
+* dig diagnostic messages
+* fix snap in CI
+* Contributors: Davide Faconti
+
+3.8.7 (2024-01-16)
+------------------
+* add "prefix and merge" checkbox
+* fix warning "transparent.png"
+* fix issue `#912 <https://github.com/facontidavide/PlotJuggler/issues/912>`_
+* Contributors: Davide Faconti
+
+3.8.6 (2024-01-09)
+------------------
+* fix issue `#906 <https://github.com/facontidavide/PlotJuggler/issues/906>`_: support nanoseconds timestamp in csv
+* fix issue `#904 <https://github.com/facontidavide/PlotJuggler/issues/904>`_: wring ROS odometry parsing
+* add moving variance
+* Contributors: Davide Faconti
+
+3.8.5 (2024-01-03)
+------------------
+* fix issue `#901 <https://github.com/facontidavide/PlotJuggler/issues/901>`_
+* Contributors: Davide Faconti
+
+3.8.4 (2023-12-20)
+------------------
+* critical bug fix: `#864 <https://github.com/facontidavide/PlotJuggler/issues/864>`_ `#856 <https://github.com/facontidavide/PlotJuggler/issues/856>`_
+* Contributors: Davide Faconti
+
+3.8.1 (2023-11-23)
+------------------
+* data_tamer added to rosx_introspection
+* Contributors: Davide Faconti
+
+3.8.0 (2023-11-12)
+------------------
+* data_tamer updated
+  This reverts commit 4ba24c591a9a84fbfb6c0329b787d73f98a2b23b.
+* CI updated
+* qwt updated
+* Merge pull request `#869 <https://github.com/facontidavide/PlotJuggler/issues/869>`_ from zdavkeos/step_interpolation
+  Add "Steps" when drawing curves
+* Merge pull request `#870 <https://github.com/facontidavide/PlotJuggler/issues/870>`_ from MirkoFerrati/patch-3
+  Fix missing '22' in the new snap core22 workflow
+* Fix missing '22' in the new snap core22 workflow
+* Merge pull request `#849 <https://github.com/facontidavide/PlotJuggler/issues/849>`_ from MirkoFerrati/mirko/core22_snap
+  update to core22, remove ros1, enable humble instead of foxy
+* Add "Steps" when drawing curves
+* Remove deprecated messages from foxy
+* Skip git security check for git owner inside the snap container
+* Adapt to new snapcraft syntax for core22, sort stage-packages
+* swap default snap with core22 snap for ros humble
+* duplicate the snap github action to publish new humble track
+* add snap for core22, remove ros1, enable humble
+* Merge pull request `#853 <https://github.com/facontidavide/PlotJuggler/issues/853>`_ from MirkoFerrati/mirko/fix_snap
+  remove deprecated msg from snapcraft
+* Merge pull request `#846 <https://github.com/facontidavide/PlotJuggler/issues/846>`_ from locusrobotics/fix-catkin-build
+  Use a more reliable method to select buildtool
+* fix
+* MCAP loader is not faster for large files
+* fix parsers names
+* extend the Toolbox plugin interface
+* mcap updated
+* remove deprecated msg from snapcraft
+* Use a more reliable method to select buildtool
+* Merge pull request `#843 <https://github.com/facontidavide/PlotJuggler/issues/843>`_ from faisal-shah/date-time-format-urls
+  Add link to QDate format string
+* Add 'tab' as a separator in the CSV loader
+* Add link to QDate format string
+  A link to QTime format string was there, but not QDate
+* Merge pull request `#840 <https://github.com/facontidavide/PlotJuggler/issues/840>`_ from jbendes/zcm-improvements
+  Zcm improvements
+* Moved away from std function for speed
+* Fixed loading of selected channels from layout
+* Merge pull request `#827 <https://github.com/facontidavide/PlotJuggler/issues/827>`_ from jbendes/zcm
+  Added zcm streaming support
+* Merge pull request `#834 <https://github.com/facontidavide/PlotJuggler/issues/834>`_ from rinnaz/fix-protobuf-parser-leak
+  Fix memory leak in protobuf parser
+* Made transport text box wider
+* Looking for zcm in alternate directory first
+* A bit more stable
+* Serializing and deserializing dataloader for zcm in layout
+* fix: memory leak in protobuf parser
+* Reverted change
+* Changed to ZCM_DEFAULT_URL
+* ZCM refactored
+* ZCM works, with single type file
+* Cleaner loading dialogs
+* Added progress dialog
+* Added channel selection
+* Added data loading from files
+* A bit of simplification and bug fix
+* Added zcm streaming support
+* Add missing cstdint include
+* Contributors: Davide Faconti, Faisal Shah, Jonathan Bendes, Mirko Ferrati, Paul Bovbel, Rinat Nazarov, Zach Davis, joajfreitas
+
+3.7.0 (2023-05-19)
+------------------
+* Handle protobuf maps (`#824 <https://github.com/facontidavide/PlotJuggler/issues/824>`_)
+  Protobuf maps are just repeated protobuf messages with only 2 fields
+  "key" and "value". Extract the map's key and use it in the series name
+  and skip adding series for "key" fields to reduce the number of non
+  useful series. Additionally don't include "value" in the series name for
+  the value of a map.
+* add progress dialog to MCAP loading
+* new plugin: DataTamer parser
+* performance optimization in pushBack
+* more information in MCAP error
+* optimization in MoveData
+* address `#820 <https://github.com/facontidavide/PlotJuggler/issues/820>`_
+* Prevent runtime_error exceptions from plugins crashing the main app (`#812 <https://github.com/facontidavide/PlotJuggler/issues/812>`_)
+  Catch runtime_error exceptions thrown from the plugins and skip the throwing plugins, so that the main app can continue its normal operation.
+* fix(snap): add libzstd for mcap support (`#815 <https://github.com/facontidavide/PlotJuggler/issues/815>`_)
+* Update README.md
+* Add a "central difference" method of derivative calculation (`#813 <https://github.com/facontidavide/PlotJuggler/issues/813>`_)
+* Updating COMPILE dependencies to install (`#810 <https://github.com/facontidavide/PlotJuggler/issues/810>`_)
+  Taken from CI: https://github.com/facontidavide/PlotJuggler/blob/main/.github/workflows/ubuntu.yaml#L20-L31
+* Fix the bug where the shared library Parquet is not linked (`#807 <https://github.com/facontidavide/PlotJuggler/issues/807>`_)
+  The actual path to the shared library is in `${PARQUET_SHARED_LIB}` instead of in
+  `${PARQUET_LIBRARIES}`.
+* Add CMake into comp vars and minor format improvements (`#804 <https://github.com/facontidavide/PlotJuggler/issues/804>`_)
+  Co-authored-by: Erick G. Islas Osuna <eislasosuna@netflix.com>
+* Fix for missing preferences (`#795 <https://github.com/facontidavide/PlotJuggler/issues/795>`_)
+* fix typos in "tips and tricks" cheatsheet (`#798 <https://github.com/facontidavide/PlotJuggler/issues/798>`_)
+  fix a couple of minor typos in dialog text
+* Support Proto's That Reference Google/Protobuf (`#793 <https://github.com/facontidavide/PlotJuggler/issues/793>`_)
+* Fix for segfault in DataLoadCSV destructor (`#784 <https://github.com/facontidavide/PlotJuggler/issues/784>`_)
+  - Change order of deletion for dialogs.
+  - First delete child dialog `_dateTime_dialog` then parent
+  `_dialog`.
+* Add CodeQL workflow (`#765 <https://github.com/facontidavide/PlotJuggler/issues/765>`_)
+* [bugfix] String deserialization (`#780 <https://github.com/facontidavide/PlotJuggler/issues/780>`_)
+* forgot throw
+* fixing nan check (`#777 <https://github.com/facontidavide/PlotJuggler/issues/777>`_)
+* Update Reactive Scripts on playback loop (`#771 <https://github.com/facontidavide/PlotJuggler/issues/771>`_)
+* fix
+* Contributors: Alistair, AndyZe, Bartimaeus-, Connor Anderson, Davide Faconti, Erick G. Islas-Osuna, Guillaume Beuzeboc, Mark Cutler, Michael Orlov, Peter Stöckli, Sam Pfeiffer, Zach Davis, Zheng Qu, augustinmanecy, ozzdemir
+
 3.6.1 (2022-12-18)
 ------------------
 * apply changes suggested in `#767 <https://github.com/facontidavide/PlotJuggler/issues/767>`_
@@ -33,7 +232,7 @@ Changelog for package plotjuggler
 3.6.0 (2022-08-13)
 ------------------
 * More memes
-* Refactoring of the MessageParser plugins 
+* Refactoring of the MessageParser plugins
 * Mcap support (`#722 <https://github.com/facontidavide/PlotJuggler/issues/722>`_)
 * Improve CSV loader error handling (`#721 <https://github.com/facontidavide/PlotJuggler/issues/721>`_)
 * Fix plotwidget drag and drop bug (Issue `#716 <https://github.com/facontidavide/PlotJuggler/issues/716>`_) (`#717 <https://github.com/facontidavide/PlotJuggler/issues/717>`_)
@@ -1345,7 +1544,7 @@ Changelog for package plotjuggler
 0.10.0 (2017-02-12)
 -------------------
 * auto loading of streamer based on saved layout
-* refactoring of the ROS plugins 
+* refactoring of the ROS plugins
 * REFACTORING to allow future improvements of drag&drop
 * trying to fix a compilation problem
 * Update README.md

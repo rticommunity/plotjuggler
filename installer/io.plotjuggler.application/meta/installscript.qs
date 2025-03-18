@@ -26,12 +26,12 @@
 **
 ****************************************************************************/
 
+var targetDirectoryPage = null;
+
 function Component()
 {
-    // constructor
-    component.loaded.connect(this, Component.prototype.loaded);
-    if (!installer.addWizardPage(component, "Page", QInstaller.TargetDirectory))
-        console.log("Could not add the dynamic page.");
+    installer.gainAdminRights();
+    component.loaded.connect(this, this.installerLoaded);
 }
 
 Component.prototype.isDefault = function()
@@ -49,27 +49,56 @@ Component.prototype.createOperations = function()
 			component.addOperation("CreateShortcut", "@TargetDir@/PlotJuggler.exe", "@StartMenuDir@/PlotJuggler.lnk",
 				"workingDirectory=@TargetDir@",	"iconId=0", "description=Launch PlotJuggler");
 			component.addOperation("CreateShortcut", "@TargetDir@/PlotJuggler.exe", "@DesktopDir@/PlotJuggler.lnk",
-				"workingDirectory=@TargetDir@",	"iconId=0", "description=Launch PlotJuggler");                
-		}		
+				"workingDirectory=@TargetDir@",	"iconId=0", "description=Launch PlotJuggler");
+		}
     } catch (e) {
         console.log(e);
     }
 }
 
-Component.prototype.loaded = function ()
+
+// https://stackoverflow.com/a/46614107
+
+Component.prototype.installerLoaded = function()
 {
-    var page = gui.pageByObjectName("DynamicPage");
-    if (page != null) {
-        console.log("Connecting the dynamic page entered signal.");
-        page.entered.connect(Component.prototype.dynamicPageEntered);
-    }
+    installer.setDefaultPageVisible(QInstaller.TargetDirectory, false);
+    installer.addWizardPage(component, "TargetWidget", QInstaller.TargetDirectory);
+
+    targetDirectoryPage = gui.pageWidgetByObjectName("DynamicTargetWidget");
+    targetDirectoryPage.windowTitle = "Choose Installation Directory";
+    targetDirectoryPage.description.setText("Please select where PlotJuggler will be installed:");
+    targetDirectoryPage.targetDirectory.textChanged.connect(this, this.targetDirectoryChanged);
+    targetDirectoryPage.targetDirectory.setText(installer.value("TargetDir"));
+    targetDirectoryPage.targetChooser.released.connect(this, this.targetChooserClicked);
+
+    gui.pageById(QInstaller.ComponentSelection).entered.connect(this, this.componentSelectionPageEntered);
 }
 
-Component.prototype.dynamicPageEntered = function ()
+Component.prototype.targetChooserClicked = function()
 {
-    var pageWidget = gui.pageWidgetByObjectName("DynamicPage");
-    if (pageWidget != null) {
-        console.log("Setting the widgets label text.")
-        pageWidget.m_pageLabel.text = "This is a dynamically created page.";
+    var dir = QFileDialog.getExistingDirectory("", targetDirectoryPage.targetDirectory.text);
+    targetDirectoryPage.targetDirectory.setText(dir);
+}
+
+Component.prototype.targetDirectoryChanged = function()
+{
+    var dir = targetDirectoryPage.targetDirectory.text;
+    if (installer.fileExists(dir) && installer.fileExists(dir + "/maintenancetool.exe")) {
+        targetDirectoryPage.warning.setText("<p style=\"color: red\">Existing installation detected and will be overwritten.</p>");
+    }
+    else if (installer.fileExists(dir)) {
+        targetDirectoryPage.warning.setText("<p style=\"color: red\">Installing in existing directory. It will be wiped on uninstallation.</p>");
+    }
+    else {
+        targetDirectoryPage.warning.setText("");
+    }
+    installer.setValue("TargetDir", dir);
+}
+
+Component.prototype.componentSelectionPageEntered = function()
+{
+    var dir = installer.value("TargetDir");
+    if (installer.fileExists(dir) && installer.fileExists(dir + "/maintenancetool.exe")) {
+        installer.execute(dir + "/maintenancetool.exe", ["purge", "-c"]);
     }
 }

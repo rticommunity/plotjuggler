@@ -341,6 +341,20 @@
               </property>
              </widget>
             </item>
+             <item>
+             <widget class="QRadioButton" name="radioSteps">
+              <property name="text">
+               <string>Steps (pre)</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QRadioButton" name="radioStepsInv">
+              <property name="text">
+               <string>Step (post)</string>
+              </property>
+             </widget>
+            </item>
            </layout>
           </widget>
          </item>

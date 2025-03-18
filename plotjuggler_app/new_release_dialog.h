@@ -22,6 +22,8 @@ public:
   NewReleaseDialog(QWidget* parent, QString release, QString title, QString url, QString pixmap_file);
   ~NewReleaseDialog();
 
+  bool link_opened = false;
+
 private:
   Ui::NewReleaseDialog* ui;
 };
