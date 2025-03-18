@@ -29,7 +29,7 @@
    <item>
     <widget class="QLabel" name="label">
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:14pt; font-weight:700;&quot;&gt;New Version Installed&lt;br/&gt;&lt;br/&gt;&lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;The latest release of PlotJuggler includes several bug fixed and new features.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:14pt; font-weight:700;&quot;&gt;New Version Installed&lt;br/&gt;&lt;br/&gt;&lt;/span&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;The latest release of PlotJuggler RTI Edition includes several bug fixed and new features.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="wordWrap">
       <bool>true</bool>
