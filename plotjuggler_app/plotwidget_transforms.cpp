@@ -61,18 +61,16 @@ void DialogTransformEditor::setupTable()
   std::map<QString, QColor> colors = _plotwidget->getCurveColors();
 
   int row = 0;
-  for (auto& it : colors)
+  for (auto& [curve_name, color] : colors)
   {
-    auto curve_it = _plotwidget->curveFromTitle(it.first);
+    auto curve_it = _plotwidget->curveFromTitle(curve_name);
     auto name = QString::fromStdString(curve_it->src_name);
-    auto color = it.second;
     auto item = new QListWidgetItem();
     //  item->setForeground(color);
     ui->listCurves->addItem(item);
     auto plot_row = new RowWidget(name, color);
     item->setSizeHint(plot_row->sizeHint());
     ui->listCurves->setItemWidget(item, plot_row);
-
     row++;
   }
 }
@@ -160,8 +158,7 @@ void DialogTransformEditor::on_listTransforms_itemSelectionChanged()
   {
     return;
   }
-  auto row_widget =
-      dynamic_cast<RowWidget*>(ui->listCurves->itemWidget(selected_curves.front()));
+  auto row_widget = dynamic_cast<RowWidget*>(ui->listCurves->itemWidget(selected_curves.front()));
 
   QString curve_name = row_widget->text();
 
@@ -265,8 +262,7 @@ void DialogTransformEditor::on_lineEditAlias_editingFinished()
   {
     return;
   }
-  auto row_widget =
-      dynamic_cast<RowWidget*>(ui->listCurves->itemWidget(selected_curves.front()));
+  auto row_widget = dynamic_cast<RowWidget*>(ui->listCurves->itemWidget(selected_curves.front()));
 
   QString curve_name = row_widget->text();
 
