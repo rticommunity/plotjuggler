@@ -1571,7 +1571,7 @@ void MainWindow::startStreamingPlugin(QString streamer_name)
 
   DataStreamerPtr streamer = nullptr;
   auto it = dataStreamers().find(streamer_name);
-  if (it != dataStreamers().end())
+  if (it == dataStreamers().end())
   {
     qDebug() << "Error. The streamer " << streamer_name << " can't be loaded";
     return;
