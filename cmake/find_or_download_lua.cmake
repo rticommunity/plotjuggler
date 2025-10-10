@@ -1,6 +1,8 @@
 function(find_or_download_lua)
 
-  find_package(Lua QUIET)
+  # commented the find_package because we want to force the download of lua
+  # and use it statically linked to avoid dependency problems
+  # find_package(Lua QUIET)
 
   if(LUA_FOUND)
     message(STATUS "Found Lua in system")
