@@ -583,8 +583,11 @@ void MainWindow::initializePlugins()
     loader->setParserFactories(&_parser_factories);
   }
   int pub_row = 0;
-  for (const auto& [plugin_name, publisher] : _plugin_manager.statePublishers())
+  for (const auto& pair : _plugin_manager.statePublishers())
   {
+    const auto& plugin_name = pair.first;
+    const auto& publisher = pair.second;
+
     publisher->setDataMap(&_mapped_plot_data);
 
     ui->layoutPublishers->setColumnStretch(0, 1.0);

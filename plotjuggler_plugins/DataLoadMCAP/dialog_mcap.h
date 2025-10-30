@@ -6,6 +6,7 @@
 #include <optional>
 #include "dataload_params.h"
 #include <QShortcut>
+#include <unordered_map>
 
 namespace Ui
 {
