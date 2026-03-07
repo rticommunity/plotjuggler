@@ -55,28 +55,40 @@ function(download_wasmer)
       URL_HASH SHA256=${WASMER_URL_HASH}
       DOWNLOAD_ONLY YES)
 
-  file(GLOB WASMER_LIB_FILES "${wasmer_SOURCE_DIR}/lib/*")
-  message(STATUS "wasmer lib/ contents: ${WASMER_LIB_FILES}")
-  file(GLOB WASMER_BIN_FILES "${wasmer_SOURCE_DIR}/bin/*")
-  message(STATUS "wasmer bin/ contents: ${WASMER_BIN_FILES}")
-
-  if(NOT EXISTS "${wasmer_SOURCE_DIR}/lib/${WASMER_STATIC_LIBRARY_NAME}")
-    message(FATAL_ERROR "wasmer library not found: ${wasmer_SOURCE_DIR}/lib/${WASMER_STATIC_LIBRARY_NAME}")
-  endif()
-
-  add_library(wasmer::wasmer UNKNOWN IMPORTED GLOBAL)
-  set_target_properties(wasmer::wasmer PROPERTIES
-      IMPORTED_LOCATION "${wasmer_SOURCE_DIR}/lib/${WASMER_STATIC_LIBRARY_NAME}"
-      INTERFACE_INCLUDE_DIRECTORIES "${wasmer_SOURCE_DIR}/include")
-
-  if(WIN32)
-    set_property(TARGET wasmer::wasmer APPEND PROPERTY
+  if(WIN32 AND NOT MINGW)
+    # MSVC: wasmer ships as DLL + import library; DLL lives in lib/, not bin/
+    if(NOT EXISTS "${wasmer_SOURCE_DIR}/lib/wasmer.lib")
+      message(FATAL_ERROR "wasmer import library not found: ${wasmer_SOURCE_DIR}/lib/wasmer.lib")
+    endif()
+    if(NOT EXISTS "${wasmer_SOURCE_DIR}/lib/wasmer.dll")
+      message(FATAL_ERROR "wasmer DLL not found: ${wasmer_SOURCE_DIR}/lib/wasmer.dll")
+    endif()
+    add_library(wasmer::wasmer SHARED IMPORTED GLOBAL)
+    set_target_properties(wasmer::wasmer PROPERTIES
+        IMPORTED_IMPLIB   "${wasmer_SOURCE_DIR}/lib/wasmer.lib"
+        IMPORTED_LOCATION "${wasmer_SOURCE_DIR}/lib/wasmer.dll"
+        INTERFACE_INCLUDE_DIRECTORIES "${wasmer_SOURCE_DIR}/include"
         INTERFACE_LINK_LIBRARIES "ws2_32;advapi32;userenv;ntdll;bcrypt")
-    set_property(TARGET wasmer::wasmer APPEND PROPERTY
-        INTERFACE_COMPILE_DEFINITIONS "WASM_API_EXTERN=;WASI_API_EXTERN=")
+    # Headers default to __declspec(dllimport) on Windows — do not override WASM_API_EXTERN
   else()
-    set_property(TARGET wasmer::wasmer APPEND PROPERTY
-        INTERFACE_LINK_LIBRARIES "pthread;dl;m")
+    # Linux, macOS, MinGW: static library
+    if(NOT EXISTS "${wasmer_SOURCE_DIR}/lib/${WASMER_STATIC_LIBRARY_NAME}")
+      message(FATAL_ERROR "wasmer library not found: ${wasmer_SOURCE_DIR}/lib/${WASMER_STATIC_LIBRARY_NAME}")
+    endif()
+    add_library(wasmer::wasmer UNKNOWN IMPORTED GLOBAL)
+    set_target_properties(wasmer::wasmer PROPERTIES
+        IMPORTED_LOCATION "${wasmer_SOURCE_DIR}/lib/${WASMER_STATIC_LIBRARY_NAME}"
+        INTERFACE_INCLUDE_DIRECTORIES "${wasmer_SOURCE_DIR}/include")
+    if(WIN32)
+      # MinGW static lib — suppress dllimport annotations
+      set_property(TARGET wasmer::wasmer APPEND PROPERTY
+          INTERFACE_LINK_LIBRARIES "ws2_32;advapi32;userenv;ntdll;bcrypt")
+      set_property(TARGET wasmer::wasmer APPEND PROPERTY
+          INTERFACE_COMPILE_DEFINITIONS "WASM_API_EXTERN=;WASI_API_EXTERN=")
+    else()
+      set_property(TARGET wasmer::wasmer APPEND PROPERTY
+          INTERFACE_LINK_LIBRARIES "pthread;dl;m")
+    endif()
   endif()
 
   set(wasmer_FOUND TRUE CACHE BOOL "Whether wasmer was found or downloaded")
