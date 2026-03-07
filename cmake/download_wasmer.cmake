@@ -55,26 +55,24 @@ function(download_wasmer)
       URL_HASH SHA256=${WASMER_URL_HASH}
       DOWNLOAD_ONLY YES)
 
-  add_library(wasmer::wasmer INTERFACE IMPORTED)
-
-  if(NOT EXISTS ${wasmer_SOURCE_DIR}/lib/${WASMER_STATIC_LIBRARY_NAME})
+  if(NOT EXISTS "${wasmer_SOURCE_DIR}/lib/${WASMER_STATIC_LIBRARY_NAME}")
     message(FATAL_ERROR "wasmer library not found: ${wasmer_SOURCE_DIR}/lib/${WASMER_STATIC_LIBRARY_NAME}")
   endif()
 
-  set(WASMER_LINK_LIBRARIES ${wasmer_SOURCE_DIR}/lib/${WASMER_STATIC_LIBRARY_NAME})
-  set(WASMER_COMPILE_DEFINITIONS "")
+  add_library(wasmer::wasmer UNKNOWN IMPORTED GLOBAL)
+  set_target_properties(wasmer::wasmer PROPERTIES
+      IMPORTED_LOCATION "${wasmer_SOURCE_DIR}/lib/${WASMER_STATIC_LIBRARY_NAME}"
+      INTERFACE_INCLUDE_DIRECTORIES "${wasmer_SOURCE_DIR}/include")
 
   if(WIN32)
-    list(APPEND WASMER_LINK_LIBRARIES ws2_32 advapi32 userenv ntdll bcrypt)
-    list(APPEND WASMER_COMPILE_DEFINITIONS WASM_API_EXTERN= WASI_API_EXTERN=)
+    set_property(TARGET wasmer::wasmer APPEND PROPERTY
+        INTERFACE_LINK_LIBRARIES "ws2_32;advapi32;userenv;ntdll;bcrypt")
+    set_property(TARGET wasmer::wasmer APPEND PROPERTY
+        INTERFACE_COMPILE_DEFINITIONS "WASM_API_EXTERN=;WASI_API_EXTERN=")
   else()
-    list(APPEND WASMER_LINK_LIBRARIES pthread dl m)
+    set_property(TARGET wasmer::wasmer APPEND PROPERTY
+        INTERFACE_LINK_LIBRARIES "pthread;dl;m")
   endif()
-
-  set_target_properties(wasmer::wasmer PROPERTIES
-      INTERFACE_INCLUDE_DIRECTORIES "${wasmer_SOURCE_DIR}/include"
-      INTERFACE_LINK_LIBRARIES "${WASMER_LINK_LIBRARIES}"
-      INTERFACE_COMPILE_DEFINITIONS "${WASMER_COMPILE_DEFINITIONS}")
 
   set(wasmer_FOUND TRUE CACHE BOOL "Whether wasmer was found or downloaded")
 
