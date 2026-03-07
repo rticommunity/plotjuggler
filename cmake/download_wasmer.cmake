@@ -55,6 +55,11 @@ function(download_wasmer)
       URL_HASH SHA256=${WASMER_URL_HASH}
       DOWNLOAD_ONLY YES)
 
+  file(GLOB WASMER_LIB_FILES "${wasmer_SOURCE_DIR}/lib/*")
+  message(STATUS "wasmer lib/ contents: ${WASMER_LIB_FILES}")
+  file(GLOB WASMER_BIN_FILES "${wasmer_SOURCE_DIR}/bin/*")
+  message(STATUS "wasmer bin/ contents: ${WASMER_BIN_FILES}")
+
   if(NOT EXISTS "${wasmer_SOURCE_DIR}/lib/${WASMER_STATIC_LIBRARY_NAME}")
     message(FATAL_ERROR "wasmer library not found: ${wasmer_SOURCE_DIR}/lib/${WASMER_STATIC_LIBRARY_NAME}")
   endif()
