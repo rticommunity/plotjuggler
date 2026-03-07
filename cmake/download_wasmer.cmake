@@ -57,15 +57,15 @@ function(download_wasmer)
 
   if(WIN32 AND NOT MINGW)
     # MSVC: wasmer ships as DLL + import library; DLL lives in lib/, not bin/
-    if(NOT EXISTS "${wasmer_SOURCE_DIR}/lib/wasmer.lib")
-      message(FATAL_ERROR "wasmer import library not found: ${wasmer_SOURCE_DIR}/lib/wasmer.lib")
+    if(NOT EXISTS "${wasmer_SOURCE_DIR}/lib/wasmer.dll.lib")
+      message(FATAL_ERROR "wasmer import library not found: ${wasmer_SOURCE_DIR}/lib/wasmer.dll.lib")
     endif()
     if(NOT EXISTS "${wasmer_SOURCE_DIR}/lib/wasmer.dll")
       message(FATAL_ERROR "wasmer DLL not found: ${wasmer_SOURCE_DIR}/lib/wasmer.dll")
     endif()
     add_library(wasmer::wasmer SHARED IMPORTED GLOBAL)
     set_target_properties(wasmer::wasmer PROPERTIES
-        IMPORTED_IMPLIB   "${wasmer_SOURCE_DIR}/lib/wasmer.lib"
+        IMPORTED_IMPLIB   "${wasmer_SOURCE_DIR}/lib/wasmer.dll.lib"
         IMPORTED_LOCATION "${wasmer_SOURCE_DIR}/lib/wasmer.dll"
         INTERFACE_INCLUDE_DIRECTORIES "${wasmer_SOURCE_DIR}/include"
         INTERFACE_LINK_LIBRARIES "ws2_32;advapi32;userenv;ntdll;bcrypt")
