@@ -20,6 +20,17 @@ WebsocketDialog::WebsocketDialog(const WebsocketClientConfig& config)
   ui->lineEditAddress->setText(config.address);
   ui->lineEditPort->setText(QString::number(config.port));
 
+  ui->spinBoxArraySize->setValue(config.max_array_size);
+  if (config.clamp_large_arrays)
+  {
+    ui->radioClamp->setChecked(true);
+  }
+  else
+  {
+    ui->radioSkip->setChecked(true);
+  }
+  ui->checkBoxUseTimestamp->setChecked(config.use_timestamp);
+
   auto okBtn = ui->buttonBox->button(QDialogButtonBox::Ok);
   if (okBtn)
   {
@@ -167,6 +178,23 @@ std::vector<TopicInfo> WebsocketDialog::selectedTopics() const
 void WebsocketDialog::clearTopics()
 {
   ui->topicsList->clear();
+}
+
+// --- Parser options ---
+
+unsigned WebsocketDialog::maxArraySize() const
+{
+  return ui->spinBoxArraySize->value();
+}
+
+bool WebsocketDialog::clampLargeArrays() const
+{
+  return ui->radioClamp->isChecked();
+}
+
+bool WebsocketDialog::useTimestamp() const
+{
+  return ui->checkBoxUseTimestamp->isChecked();
 }
 
 // --- OK button ---

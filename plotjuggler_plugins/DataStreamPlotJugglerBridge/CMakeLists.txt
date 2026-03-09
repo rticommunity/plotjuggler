@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(DataStreamWebsocketBridge)
+project(DataStreamPlotJugglerBridge)
 
 find_package(Qt5 REQUIRED COMPONENTS Widgets WebSockets Xml)
 
@@ -19,16 +19,16 @@ set(SRC
   websocket_dialog.cpp
 )
 
-add_library(DataStreamWebsocketBridge SHARED
+add_library(DataStreamPlotJugglerBridge SHARED
   ${SRC}
   ${UI_SRC}
 )
 
-target_include_directories(DataStreamWebsocketBridge PRIVATE
+target_include_directories(DataStreamPlotJugglerBridge PRIVATE
   ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-target_link_libraries(DataStreamWebsocketBridge PRIVATE
+target_link_libraries(DataStreamPlotJugglerBridge PRIVATE
   Qt5::Widgets
   Qt5::WebSockets
   Qt5::Xml
@@ -36,10 +36,10 @@ target_link_libraries(DataStreamWebsocketBridge PRIVATE
   zstd::libzstd_static
 )
 
-target_compile_definitions(DataStreamWebsocketBridge PRIVATE
+target_compile_definitions(DataStreamPlotJugglerBridge PRIVATE
   QT_PLUGIN
   PJ_BUILD
 )
 
-install(TARGETS DataStreamWebsocketBridge
+install(TARGETS DataStreamPlotJugglerBridge
         DESTINATION ${PJ_PLUGIN_INSTALL_DIRECTORY})

@@ -192,6 +192,9 @@ bool WebsocketClient::start(QStringList*)
 
     _topics = dialog.selectedTopics();
     _config.topics = dialog.selectedTopicNames();
+    _config.max_array_size = dialog.maxArraySize();
+    _config.clamp_large_arrays = dialog.clampLargeArrays();
+    _config.use_timestamp = dialog.useTimestamp();
     saveDefaultSettings();
 
     // Build JSON array
@@ -782,6 +785,8 @@ void WebsocketClient::createParsersForTopics()
       continue;
     }
 
+    parser->setLargeArraysPolicy(_config.clamp_large_arrays, _config.max_array_size);
+    parser->enableEmbeddedTimestamp(_config.use_timestamp);
     _parsers_topic.insert(t.name, std::move(parser));
   }
 #endif

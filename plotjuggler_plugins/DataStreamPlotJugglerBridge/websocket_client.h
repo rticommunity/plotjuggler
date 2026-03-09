@@ -53,7 +53,7 @@ public:
 
   virtual const char* name() const override
   {
-    return "PJ Websocket Bridge";
+    return "PlotJuggler ROS2 Bridge";
   }
 
   virtual bool isDebugPlugin() override

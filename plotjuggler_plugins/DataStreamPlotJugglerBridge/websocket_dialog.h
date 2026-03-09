@@ -48,6 +48,11 @@ public:
   // OK button
   void setOkButton(const QString& text, bool enabled);
 
+  // Parser options
+  unsigned maxArraySize() const;
+  bool clampLargeArrays() const;
+  bool useTimestamp() const;
+
   // Signal access for external connections
   QDialogButtonBox* buttonBox() const;
 
