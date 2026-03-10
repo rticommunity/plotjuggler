@@ -2391,10 +2391,9 @@ void MainWindow::updateDataAndReplot(bool replot_hidden_tabs)
     // Periodic resync: if a curve was missed by addCurve on first detection
     // (e.g. due to a transient issue), MoveData won't report it again.
     // Re-attempt all known curves every ~2 seconds to recover.
-    static int resync_counter = 0;
-    if (++resync_counter >= 50)
+    if (++_curvelist_resync_counter >= 50)
     {
-      resync_counter = 0;
+      _curvelist_resync_counter = 0;
       bool any_added = false;
       auto syncCurves = [this, &any_added](auto& series_map) {
         for (const auto& [name, _] : series_map)
