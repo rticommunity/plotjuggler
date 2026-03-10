@@ -142,6 +142,8 @@ double get_arrow_value(const std::shared_ptr<arrow::Array>& array, int64_t index
 
 bool DataLoadParquet::readDataFromFile(FileLoadInfo* info, PlotDataMapRef& plot_data)
 {
+  ui->listWidgetSeries->clear();
+
   // Open the file using Arrow IO
   std::shared_ptr<arrow::io::ReadableFile> infile;
   auto result = arrow::io::ReadableFile::Open(info->filename.toStdString());
