@@ -16,6 +16,8 @@ THE SOFTWARE.
 */
 #pragma once
 
+#include <memory>
+
 #include <QtPlugin>
 #include <QByteArray>
 #include "PlotJuggler/datastreamer_base.h"
@@ -51,11 +53,19 @@ public:
     return false;
   }
 
+  std::pair<QAction*, int> notificationAction() override
+  {
+    return { _notification_action, _failed_parsing };
+  }
+
 private:
   bool _running;
   PJ::MessageParserPtr _parser;
   QSerialPort* _serialPort;
-  MsgSplitter* _splitter;
+  std::unique_ptr<MsgSplitter> _splitter;
+
+  QAction* _notification_action = nullptr;
+  int _failed_parsing = 0;
 
 private slots:
 

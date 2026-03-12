@@ -128,7 +128,6 @@ find_package(
              Svg
              OpenGL
              WebSockets
-             SerialPort
              Network)
 
 set(QT_LINK_LIBRARIES
@@ -139,7 +138,6 @@ set(QT_LINK_LIBRARIES
     Qt5::Concurrent
     Qt5::Svg
     Qt5::OpenGL
-    Qt5::SerialPort
     Qt5::WebSockets)
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -166,7 +164,6 @@ include_directories(
   ${Qt5PrintSupport_INCLUDE_DIRS}
   ${Qt5Xml_INCLUDE_DIRS}
   ${Qt5WebSockets_INCLUDE_DIRS}
-  ${Qt5SerialPort_INCLUDE_DIRS}
   ${Qt5Svg_INCLUDE_DIRS}
   ${Qt5OpenGL_INCLUDE_DIRS})
 

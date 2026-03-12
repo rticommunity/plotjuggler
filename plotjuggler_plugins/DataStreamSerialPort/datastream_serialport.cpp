@@ -18,6 +18,10 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 #include "datastream_serialport.h"
 
+#include <chrono>
+#include <memory>
+
+#include <QAction>
 #include <QDebug>
 #include <QMessageBox>
 #include <QObject>
@@ -25,13 +29,10 @@ OTHER DEALINGS IN THE SOFTWARE.
 #include <QSerialPortInfo>
 #include <QSettings>
 
-#include <chrono>
-
 #include "PlotJuggler/dialog_utils.h"
 #include "ui_datastream_serialport.h"
 
-#define SEPARATOR " - "
-#define CHUNK_SIZE 4096
+static constexpr int kChunkSize = 4096;
 
 enum FlowControl
 {
@@ -232,6 +233,7 @@ static QString serialPortErrorToString(QSerialPort::SerialPortError error)
 class MsgSplitter
 {
 public:
+  virtual ~MsgSplitter() = default;
   // Split data into messages that can be digested by a parser. Returns a list of messages.
   // The list may be empty if no message was found, or data didn't contain the entire messages.
   // A stream of messages can be fed chunk wise to this function.
@@ -241,38 +243,63 @@ public:
 class JSONSplitter : public MsgSplitter
 {
 public:
-  // Looks for JSON objects within data. A json object may be preceded by arbitrary characters which
-  // are removed. The json object may not contain nested objects.
   QList<QByteArray> process(const QByteArray& data)
   {
     QList<QByteArray> res;
 
     for (const auto byte : data)
     {
-      if (buf.count() > 1024 * 1024)
+      if (_buf.count() > 1024 * 1024)
       {
-        buf.clear();  // limit memory usage to 1MB.
+        _buf.clear();
+        _depth = 0;
+        _in_string = false;
+        _escape_next = false;
+      }
+
+      if (_in_string)
+      {
+        _buf.append(byte);
+        if (byte == '"' && !_escape_next)
+        {
+          _in_string = false;
+        }
+        _escape_next = (!_escape_next && byte == '\\');
+        continue;
+      }
+
+      if (byte == '"' && _depth > 0)
+      {
+        _buf.append(byte);
+        _in_string = true;
+        _escape_next = false;
+        continue;
       }
 
       if (byte == '{')
       {
-        start_found = true;
-        buf.clear();
+        if (_depth == 0)
+        {
+          _buf.clear();
+        }
+        _depth++;
+        _buf.append(byte);
       }
       else if (byte == '}')
       {
-        if (start_found)
+        if (_depth > 0)
         {
-          buf.append(byte);
-          res.append(buf);
-          buf.clear();
-          start_found = false;
+          _buf.append(byte);
+          _depth--;
+          if (_depth == 0)
+          {
+            res.append(std::move(_buf));
+          }
         }
       }
-
-      if (start_found)
+      else if (_depth > 0)
       {
-        buf.append(byte);
+        _buf.append(byte);
       }
     }
 
@@ -280,8 +307,10 @@ public:
   }
 
 private:
-  QByteArray buf{};
-  bool start_found{ false };
+  QByteArray _buf;
+  int _depth = 0;
+  bool _in_string = false;
+  bool _escape_next = false;
 };
 
 class DatastreamSerialPortDialog : public QDialog
@@ -307,9 +336,21 @@ public:
   Ui::SerialPortDialog* ui;
 };
 
-DatastreamSerialPort::DatastreamSerialPort()
-  : _running(false), _serialPort(nullptr), _splitter(nullptr)
+DatastreamSerialPort::DatastreamSerialPort() : _running(false), _serialPort(nullptr)
 {
+  _notification_action = new QAction(this);
+
+  connect(_notification_action, &QAction::triggered, this, [this]() {
+    QMessageBox::warning(nullptr, "Serial Port",
+                         QString("Failed to parse %1 messages").arg(_failed_parsing),
+                         QMessageBox::Ok);
+
+    if (_failed_parsing > 0)
+    {
+      _failed_parsing = 0;
+      emit notificationsChanged(_failed_parsing);
+    }
+  });
 }
 
 DatastreamSerialPort::~DatastreamSerialPort()
@@ -323,6 +364,9 @@ bool DatastreamSerialPort::start(QStringList*)
   {
     return _running;
   }
+
+  _failed_parsing = 0;
+  emit notificationsChanged(0);
 
   if (parserFactories() == nullptr || parserFactories()->empty())
   {
@@ -375,20 +419,18 @@ bool DatastreamSerialPort::start(QStringList*)
 
   auto refreshPortList = [&dialog]() {
     dialog.ui->comboBoxPort->clear();
-    Q_FOREACH (QSerialPortInfo port, QSerialPortInfo::availablePorts())
+    for (const QSerialPortInfo& port : QSerialPortInfo::availablePorts())
     {
-      QString portName = port.portName();
-      QString manufacturer = port.manufacturer();
-      if (manufacturer.size() > 0)
+      QString label = port.portName();
+      if (!port.manufacturer().isEmpty())
       {
-        portName += SEPARATOR + manufacturer;
+        label += " - " + port.manufacturer();
       }
-      QString description = port.description();
-      if (description.size() > 0)
+      if (!port.description().isEmpty())
       {
-        portName += SEPARATOR + description;
+        label += " - " + port.description();
       }
-      dialog.ui->comboBoxPort->addItem(portName);
+      dialog.ui->comboBoxPort->addItem(label, port.systemLocation());
     }
   };
   refreshPortList();
@@ -436,8 +478,14 @@ bool DatastreamSerialPort::start(QStringList*)
   dialog.ui->comboBoxProtocol->setCurrentText(protocol);
 
   int res = dialog.exec();
+  if (res == QDialog::Rejected)
+  {
+    _running = false;
+    return false;
+  }
 
   portDescription = dialog.ui->comboBoxPort->currentText();
+  QString portName = dialog.ui->comboBoxPort->currentData(Qt::UserRole).toString();
   baudrate = dialog.ui->comboBoxBaudRate->currentText().toInt();
   parity = Parity(dialog.ui->comboBoxParity->currentIndex());
   bits = DataBits(dialog.ui->comboBoxDataBits->currentIndex());
@@ -454,24 +502,12 @@ bool DatastreamSerialPort::start(QStringList*)
   settings.setValue("DatastreamSerialPort::flow-control", flowControl);
   settings.setValue("DatastreamSerialPort::protocol", protocol);
 
-  if (res == QDialog::Rejected)
-  {
-    _running = false;
-    return false;
-  }
-
-  Q_ASSERT(!_splitter);
   if (protocol == "json")
   {
-    _splitter = new JSONSplitter();
+    _splitter = std::make_unique<JSONSplitter>();
   }
 
   _parser = parser_creator->createParser({}, {}, {}, dataMap());
-
-  // portDescription == "device_name - manufacturer - description", assuming SEPARATOR == " - "
-  auto tokens = portDescription.split(SEPARATOR);
-  Q_ASSERT(tokens.size() > 0);
-  QString portName = tokens[0];
 
   Q_ASSERT(!_serialPort);
   _serialPort = new QSerialPort(this);
@@ -514,11 +550,7 @@ void DatastreamSerialPort::shutdown()
     _serialPort->deleteLater();
     _serialPort = nullptr;
   }
-  if (_splitter)
-  {
-    delete _splitter;
-    _splitter = nullptr;
-  }
+  _splitter.reset();
 }
 
 void DatastreamSerialPort::processMessage()
@@ -534,38 +566,34 @@ void DatastreamSerialPort::processMessage()
     auto ts = high_resolution_clock::now().time_since_epoch();
     double timestamp = 1e-6 * double(duration_cast<microseconds>(ts).count());
 
-    auto msgList = _splitter->process(_serialPort->read(CHUNK_SIZE));
+    auto msgList = _splitter->process(_serialPort->read(kChunkSize));
     if (msgList.count() == 0)
     {
       return;
     }
 
-    for (const auto& data : msgList)
+    int errors_before = _failed_parsing;
     {
-      MessageRef msg(reinterpret_cast<const uint8_t*>(data.data()), data.count());
-      try
+      std::lock_guard<std::mutex> lock(mutex());
+      for (const auto& data : msgList)
       {
-        std::lock_guard<std::mutex> lock(mutex());
-        // important use the mutex to protect any access to the data
-        _parser->parseMessage(msg, timestamp);
+        MessageRef msg(reinterpret_cast<const uint8_t*>(data.data()), data.count());
+        try
+        {
+          _parser->parseMessage(msg, timestamp);
+        }
+        catch (std::exception& err)
+        {
+          qDebug() << tr("parser error, data:") << data;
+          _failed_parsing++;
+        }
       }
-      catch (std::exception& err)
-      {
-        qDebug() << tr("parser error, data:") << data;
-        QMessageBox::warning(nullptr, tr("Serial Port"),
-                             tr("Problem parsing the message. Serial port will be "
-                                "closed.\n%1")
-                                 .arg(err.what()),
-                             QMessageBox::Ok);
-        shutdown();
-        // notify the GUI
-        emit closed();
-        return;
-      }
+    }
+    if (_failed_parsing > errors_before)
+    {
+      emit notificationsChanged(_failed_parsing);
     }
   }
 
-  // notify the GUI
   emit dataReceived();
-  return;
 }

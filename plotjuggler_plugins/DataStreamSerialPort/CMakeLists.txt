@@ -1,15 +1,20 @@
-find_package(Qt5 REQUIRED COMPONENTS SerialPort)
+find_package(Qt5 COMPONENTS SerialPort QUIET)
 
-qt5_wrap_ui(UI_SRC datastream_serialport.ui)
+if(Qt5SerialPort_FOUND)
+  message(STATUS "[Qt5SerialPort] found")
 
-set(SRC datastream_serialport.h datastream_serialport.cpp)
+  qt5_wrap_ui(UI_SRC datastream_serialport.ui)
 
-add_library(DataStreamSerialPort SHARED ${SRC} ${UI_SRC})
+  set(SRC datastream_serialport.h datastream_serialport.cpp)
 
-target_link_libraries(
-DataStreamSerialPort PRIVATE Qt5::Widgets Qt5::SerialPort plotjuggler_base)
+  add_library(DataStreamSerialPort SHARED ${SRC} ${UI_SRC})
 
-target_compile_definitions(DataStreamSerialPort PRIVATE QT_PLUGIN)
+  target_link_libraries(
+    DataStreamSerialPort PRIVATE Qt5::Widgets Qt5::SerialPort plotjuggler_base)
 
-install(TARGETS DataStreamSerialPort
-      DESTINATION ${PJ_PLUGIN_INSTALL_DIRECTORY})
+  target_compile_definitions(DataStreamSerialPort PRIVATE QT_PLUGIN)
+
+  install(TARGETS DataStreamSerialPort DESTINATION ${PJ_PLUGIN_INSTALL_DIRECTORY})
+else()
+  message(WARNING "[Qt5SerialPort] not found. Skipping plugin DataStreamSerialPort.")
+endif()
