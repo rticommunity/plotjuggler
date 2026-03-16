@@ -19,10 +19,13 @@
 #include <QJsonDocument>
 #include <QDir>
 #include <QDialog>
-#include <QUuid>
 #include <QDesktopServices>
+#include <QHostInfo>
+#include <QSslConfiguration>
+#include <QSslSocket>
 
 #include "PlotJuggler/transform_function.h"
+#include "transforms/binary_filter.h"
 #include "transforms/first_derivative.h"
 #include "transforms/samples_count.h"
 #include "transforms/scale_transform.h"
@@ -32,8 +35,6 @@
 #include "transforms/outlier_removal.h"
 #include "transforms/integral_transform.h"
 #include "transforms/absolute_transform.h"
-
-#include "new_release_dialog.h"
 
 #ifdef COMPILED_WITH_CATKIN
 #include <ros/ros.h>
@@ -58,51 +59,16 @@ inline int GetVersionNumber(QString str)
   return major * 10000 + minor * 100 + patch;
 }
 
-void OpenNewReleaseDialog(QNetworkReply* reply, QString pixmapfile)
-{
-  if (reply->error())
-  {
-    qDebug() << "reply error";
-    return;
-  }
-
-  QString answer = reply->readAll();
-  QJsonDocument document = QJsonDocument::fromJson(answer.toUtf8());
-  QJsonObject data = document.object();
-  QString url = data["html_url"].toString();
-  QString name = data["name"].toString();
-  QString tag_name = data["tag_name"].toString();
-  QSettings settings;
-  int online_number = GetVersionNumber(tag_name);
-  QString dont_show =
-      settings.value("NewRelease/dontShowThisVersion", VERSION_STRING).toString();
-  int dontshow_number = GetVersionNumber(dont_show);
-  int current_number = GetVersionNumber(VERSION_STRING);
-
-  qDebug() << "OpenNewReleaseDialog: current_number: " << current_number << " online_number: " << online_number;
-  // (":/resources/update_plotjuggler.jpg")));
-  // QString pixmapfile = QString(":/plotjuggler-rti-plugin/skin/update_pj_rti_edition.png");
-  if (online_number > current_number && online_number > dontshow_number)
-  {
-    NewReleaseDialog* dialog = new NewReleaseDialog(nullptr, tag_name, name, url, pixmapfile);
-    dialog->show();
-  }
-}
-
 QPixmap getFunnySplashscreen()
 {
   QSettings settings;
   srand(time(nullptr));
 
   auto getNum = []() {
-    const int last_image_num = 94;
-    int n = rand() % (last_image_num + 2);
-    if (n > last_image_num)
-    {
-      n = 0;
-    }
-    return n;
+    const int last_image_num = 104;
+    return rand() % (last_image_num);
   };
+
   std::set<int> previous_set;
   std::list<int> previous_nums;
 
@@ -202,7 +168,7 @@ int main(int argc, char* argv[])
   //-------------------------
 
   QCoreApplication::setOrganizationName("PlotJuggler");
-  QCoreApplication::setApplicationName("PlotJuggler-3");
+  QCoreApplication::setApplicationName("io.plotjuggler.PlotJuggler");
   QSettings::setDefaultFormat(QSettings::IniFormat);
 
   QSettings settings;
@@ -227,6 +193,7 @@ int main(int argc, char* argv[])
   TransformFactory::registerTransform<AbsoluteTransform>();
   TransformFactory::registerTransform<MovingVarianceFilter>();
   TransformFactory::registerTransform<SamplesCountFilter>();
+  TransformFactory::registerTransform<BinaryFilter>();
   //---------------------------
 
   QCommandLineParser parser;
@@ -269,52 +236,36 @@ int main(int argc, char* argv[])
                                    "directory_paths");
   parser.addOption(folder_option);
 
-  QCommandLineOption buffersize_option(QStringList() << "buffer_size",
-                                       QCoreApplication::translate("main", "Change the "
-                                                                           "maximum size "
-                                                                           "of the "
-                                                                           "streaming "
-                                                                           "buffer "
-                                                                           "(minimum: 10 "
-                                                                           "default: "
-                                                                           "60)"),
-                                       QCoreApplication::translate("main", "seconds"));
-
+  QCommandLineOption buffersize_option(
+      QStringList() << "buffer_size",
+      QCoreApplication::translate(
+          "main", "Change the maximum size of the streaming buffer (minimum: 10 default: 60)"),
+      QCoreApplication::translate("main", "seconds"));
   parser.addOption(buffersize_option);
 
-  QCommandLineOption nogl_option(QStringList() << "disable_opengl", "Disable OpenGL "
-                                                                    "display before "
-                                                                    "starting the "
-                                                                    "application. "
-                                                                    "You can enable it "
-                                                                    "again in the "
-                                                                    "'Preferences' "
-                                                                    "menu.");
-
+  QCommandLineOption nogl_option(
+      QStringList() << "disable_opengl",
+      "Disable OpenGL display before starting the application. You can enable it again in the 'Preferences' menu.");
   parser.addOption(nogl_option);
 
-  QCommandLineOption enabled_plugins_option(QStringList() << "enabled_plugins",
-                                            "Limit the loaded plugins to ones in the "
-                                            "semicolon-separated list",
-                                            "name_list");
+  QCommandLineOption enabled_plugins_option(
+      QStringList() << "enabled_plugins",
+      "Limit the loaded plugins to ones in the semicolon-separated list", "name_list");
   parser.addOption(enabled_plugins_option);
 
-  QCommandLineOption disabled_plugins_option(QStringList() << "disabled_plugins",
-                                             "Do not load any of the plugins in the "
-                                             "semicolon separated list",
-                                             "name_list");
+  QCommandLineOption disabled_plugins_option(
+      QStringList() << "disabled_plugins",
+      "Do not load any of the plugins in the semicolon separated list", "name_list");
   parser.addOption(disabled_plugins_option);
 
-  QCommandLineOption skin_path_option(QStringList() << "skin_path",
-                                      "New \"skin\". Refer to the sample in "
-                                      "[plotjuggler_app/resources/skin]",
-                                      "path to folder");
+  QCommandLineOption skin_path_option(
+      QStringList() << "skin_path",
+      "New \"skin\". Refer to the sample in [plotjuggler_app/resources/skin] path to folder");
   parser.addOption(skin_path_option);
 
-  QCommandLineOption start_streamer(QStringList() << "start_streamer",
-                                    "Automatically start a Streaming Plugin with the "
-                                    "give filename",
-                                    "file_name (no extension)");
+  QCommandLineOption start_streamer(
+      QStringList() << "start_streamer",
+      "Automatically start a Streaming Plugin with the given file_name (no extension)");
   parser.addOption(start_streamer);
 
   QCommandLineOption window_title(QStringList() << "window_title", "Set the window title",
@@ -325,16 +276,14 @@ int main(int argc, char* argv[])
 
   if (parser.isSet(publish_option) && !parser.isSet(layout_option))
   {
-    std::cerr << "Option [ -p / --publish ] is invalid unless [ -l / --layout ] is used "
-                 "too."
+    std::cerr << "Option [ -p / --publish ] is invalid unless [ -l / --layout ] is used too."
               << std::endl;
     return -1;
   }
 
   if (parser.isSet(enabled_plugins_option) && parser.isSet(disabled_plugins_option))
   {
-    std::cerr << "Option [ --enabled_plugins ] and [ --disabled_plugins ] can't be used "
-                 "together."
+    std::cerr << "Option [ --enabled_plugins ] and [ --disabled_plugins ] can't be used together."
               << std::endl;
     return -1;
   }
@@ -356,45 +305,6 @@ int main(int argc, char* argv[])
 
   QIcon app_icon("://resources/plotjuggler.svg");
   QApplication::setWindowIcon(app_icon);
-
-  QString latest_release_url        = "https://api.github.com/repos/facontidavide/PlotJuggler/releases/latest";
-  QString update_plotjuggler_pixmap = ":/resources/skin/update_plotjuggler.jpg";
-
-  // Skin may modify the URL containing the latest release information and "update"" pixmap
-  if ( parser.isSet(skin_path_option) )
-  {
-    QDir path( parser.value(skin_path_option) );
-    QFile latest_release_url_file = path.filePath("latest_release_url.txt");
-    if ( latest_release_url_file.exists() ) {
-      if ( !latest_release_url_file.open( QIODevice::ReadOnly | QIODevice::Text)) {
-          qDebug() << "Latest release filepath [" <<  latest_release_url_file.fileName() << "] not found";
-          return -1;
-      }
-      QTextStream in(&latest_release_url_file);
-      latest_release_url = in.readLine();
-    }
-
-    QFile update_plotjuggler_pixmap_file = path.filePath("update_plotjuggler.jpg");
-    if ( update_plotjuggler_pixmap_file.exists() ) {
-      if ( !update_plotjuggler_pixmap_file.open( QIODevice::ReadOnly | QIODevice::Text)) {
-          qDebug() << "Update PlotJuggler image [" <<  update_plotjuggler_pixmap_file.fileName() << "] not found";
-          return -1;
-      }  
-      update_plotjuggler_pixmap = update_plotjuggler_pixmap_file.fileName();  
-    }
-  }
-
-  qDebug() << "Latest Release URL: " <<  latest_release_url;
-  qDebug() << "Update PlotJuggler pixmap file: " <<  update_plotjuggler_pixmap;
-
-  QNetworkAccessManager manager;
-  
-  QObject::connect(&manager, &QNetworkAccessManager::finished, 
-    [=](QNetworkReply* reply) { OpenNewReleaseDialog(reply, update_plotjuggler_pixmap); } );
-
-  QNetworkRequest request;
-  request.setUrl(QUrl(latest_release_url));
-  manager.get(request);
 
   MainWindow* window = nullptr;
 
@@ -468,23 +378,137 @@ int main(int argc, char* argv[])
     window->on_buttonStreamingStart_clicked();
   }
 
-  QNetworkAccessManager manager_message;
-  QObject::connect(&manager_message, &QNetworkAccessManager::finished,
-                   [window](QNetworkReply* reply) {
-                     if (reply->error())
-                     {
-                       return;
-                     }
-                     QString answer = reply->readAll();
-                     QJsonDocument document = QJsonDocument::fromJson(answer.toUtf8());
-                     QJsonObject data = document.object();
-                     QString message = data["message"].toString();
-                     window->setStatusBarMessage(message);
-                   });
+  // Check for new releases on GitHub
 
+  // Check which images to use
+  QString latest_release_url;
+  QString update_plotjuggler_pixmap;
+  if ( parser.isSet(skin_path_option) )
+  {
+    QDir path( parser.value(skin_path_option) );
+    QFile latest_release_url_file = path.filePath("latest_release_url.txt");
+    if ( latest_release_url_file.exists() ) {
+      if ( !latest_release_url_file.open( QIODevice::ReadOnly | QIODevice::Text)) {
+          qDebug() << "Latest release filepath [" <<  latest_release_url_file.fileName() << "] not found";
+          return -1;
+      }
+      QTextStream in(&latest_release_url_file);
+      latest_release_url = in.readLine();
+    }
+
+    QFile update_plotjuggler_pixmap_file = path.filePath("update_plotjuggler.png");
+    if ( update_plotjuggler_pixmap_file.exists() ) {
+      if ( !update_plotjuggler_pixmap_file.open( QIODevice::ReadOnly | QIODevice::Text)) {
+          qDebug() << "Update PlotJuggler image [" <<  update_plotjuggler_pixmap_file.fileName() << "] not found";
+          return -1;
+      }
+      update_plotjuggler_pixmap = update_plotjuggler_pixmap_file.fileName();
+    }
+  }
+
+  qDebug() << "Latest Release URL: " <<  latest_release_url;
+  qDebug() << "Update PlotJuggler pixmap file: " <<  update_plotjuggler_pixmap;
+
+  QNetworkAccessManager* manager_new_release = new QNetworkAccessManager(&app);
+  QObject::connect(
+        manager_new_release, &QNetworkAccessManager::finished,
+        [window, update_plotjuggler_pixmap](QNetworkReply* reply) {
+            if (reply->error())
+            {
+                qDebug() << "GitHub release check error:" << reply->error() << reply->errorString();
+                return;
+            }
+
+        QString answer = reply->readAll();
+        QJsonDocument document = QJsonDocument::fromJson(answer.toUtf8());
+        QJsonObject data = document.object();
+        QString url = data["html_url"].toString();
+        QString name = data["name"].toString();
+        QString tag_name = data["tag_name"].toString();
+
+        int online_number = GetVersionNumber(tag_name);
+        int current_number = GetVersionNumber(VERSION_STRING);
+
+        qDebug() << "Current version:" << VERSION_STRING << ". Latest release version:" << tag_name;
+
+        if (online_number > current_number)
+        {
+          QString message = QString("New release available: <b>%1</b><br>"
+                                    "<a href=\"%2\">View on GitHub</a>")
+                                .arg(name, url);
+          QPixmap icon;
+          if (!update_plotjuggler_pixmap.isEmpty()) {
+            icon = QPixmap(update_plotjuggler_pixmap);
+          } else {
+            icon = QPixmap(":/resources/success_kid.png");
+          }
+
+          window->showToast(message, icon);
+        }
+      });
+
+  QNetworkRequest request_new_release;
+  request_new_release.setUrl(
+        QUrl(latest_release_url.isEmpty()
+                ? "https://api.github.com/repos/facontidavide/PlotJuggler/releases/latest"
+                : latest_release_url));
+
+  // Disable SSL peer verification for GitHub API (workaround for Qt5/OpenSSL 3.0 incompatibility)
+  QSslConfiguration sslConfig_release = request_new_release.sslConfiguration();
+  sslConfig_release.setPeerVerifyMode(QSslSocket::VerifyNone);
+  request_new_release.setSslConfiguration(sslConfig_release);
+
+  manager_new_release->get(request_new_release);
+
+  QNetworkAccessManager manager_message;
+  QObject::connect(
+      &manager_message, &QNetworkAccessManager::finished, [window](QNetworkReply* reply) {
+        if (reply->error())
+        {
+          qDebug() << "Telemetry reply error:" << reply->error() << reply->errorString();
+          return;
+        }
+        qDebug() << "Telemetry reply received";
+        QString answer = reply->readAll();
+        QJsonDocument document = QJsonDocument::fromJson(answer.toUtf8());
+        QJsonObject data = document.object();
+        QString message = data["message"].toString();
+        window->setStatusBarMessage(message);
+      });
+
+  // These are 100% anonymous requests; no personal data is sent.
+  // We collect your statistics to improve PlotJuggler.
+  // Create JSON payload
+  QJsonObject payload;
+  payload["user_id"] = QString::fromLatin1(QSysInfo::machineUniqueId());
+  payload["os"] = QSysInfo::productType();
+  payload["version"] = VERSION_STRING;
+  payload["installation"] = QString(PJ_INSTALLATION);
+
+  QJsonDocument doc(payload);
+  QByteArray jsonData = doc.toJson();
+
+  // Test DNS resolution first
+  QHostInfo hostInfo = QHostInfo::fromName("app.plotjuggler.io");
+  if (hostInfo.error() != QHostInfo::NoError)
+  {
+    qDebug() << "DNS lookup failed:" << hostInfo.errorString()
+             << " Addresses found:" << hostInfo.addresses();
+  }
+
+  // Create network request
   QNetworkRequest request_message;
-  request_message.setUrl(QUrl("https://fastapi-example-7kz3.onrender.com"));
-  manager_message.get(request_message);
+  request_message.setUrl(QUrl("https://app.plotjuggler.io/telemetry"));
+  request_message.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+
+  // Disable SSL peer verification for telemetry (workaround for Qt5/OpenSSL 3.0 incompatibility)
+  // This is acceptable for anonymous telemetry data
+  QSslConfiguration sslConfig = request_message.sslConfiguration();
+  sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
+  request_message.setSslConfiguration(sslConfig);
+
+  // Send POST request
+  manager_message.post(request_message, jsonData);
 
   return app.exec();
 }

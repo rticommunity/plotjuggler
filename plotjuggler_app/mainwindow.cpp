@@ -5,6 +5,7 @@
  */
 
 #include <functional>
+#include <queue>
 #include <stdio.h>
 
 #include <QApplication>
@@ -20,6 +21,7 @@
 #include <QInputDialog>
 #include <QMenu>
 #include <QGroupBox>
+#include <QHBoxLayout>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QMouseEvent>
@@ -88,6 +90,7 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
   , _labels_status(LabelStatus::RIGHT)
   , _recent_data_files(new QMenu())
   , _recent_layout_files(new QMenu())
+  , _toast_manager(nullptr)
 {
   QLocale::setDefault(QLocale::c());  // set as default
   setAcceptDrops(true);
@@ -143,8 +146,6 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
   }
 
   QSettings settings;
-
-  ui->widgetStatusBar->setHidden(true);
 
   if (commandline_parser.isSet("buffer_size"))
   {
@@ -222,7 +223,10 @@ MainWindow::MainWindow(const QCommandLineParser& commandline_parser, QWidget* pa
   ui->mainSplitter->setStretchFactor(0, 2);
   ui->mainSplitter->setStretchFactor(1, 6);
 
-  connect(ui->mainSplitter, SIGNAL(splitterMoved(int, int)), SLOT(on_splitterMoved(int, int)));
+  connect(ui->mainSplitter, &QSplitter::splitterMoved, this, &MainWindow::on_splitterMoved);
+
+  // Initialize toast notification manager
+  _toast_manager = new ToastManager(ui->centralWidget);
 
   initializeActions();
 
@@ -385,7 +389,9 @@ MainWindow::~MainWindow()
 void MainWindow::onUndoableChange()
 {
   if (_disable_undo_logging)
+  {
     return;
+  }
 
   int elapsed_ms = _undo_timer.restart();
 
@@ -393,11 +399,15 @@ void MainWindow::onUndoableChange()
   if (elapsed_ms < 100)
   {
     if (_undo_states.empty() == false)
+    {
       _undo_states.pop_back();
+    }
   }
 
   while (_undo_states.size() >= 100)
+  {
     _undo_states.pop_front();
+  }
   _undo_states.push_back(xmlSaveState());
   _redo_states.clear();
   // qDebug() << "undo " << _undo_states.size();
@@ -405,12 +415,19 @@ void MainWindow::onUndoableChange()
 
 void MainWindow::onRedoInvoked()
 {
+  if (QApplication::activePopupWidget() || QApplication::activeModalWidget())
+  {
+    return;
+  }
+
   _disable_undo_logging = true;
   if (_redo_states.size() > 0)
   {
     QDomDocument state_document = _redo_states.back();
     while (_undo_states.size() >= 100)
+    {
       _undo_states.pop_front();
+    }
     _undo_states.push_back(state_document);
     _redo_states.pop_back();
 
@@ -422,12 +439,19 @@ void MainWindow::onRedoInvoked()
 
 void MainWindow::onUndoInvoked()
 {
+  if (QApplication::activePopupWidget() || QApplication::activeModalWidget())
+  {
+    return;
+  }
+
   _disable_undo_logging = true;
   if (_undo_states.size() > 1)
   {
     QDomDocument state_document = _undo_states.back();
     while (_redo_states.size() >= 100)
+    {
       _redo_states.pop_front();
+    }
     _redo_states.push_back(state_document);
     _undo_states.pop_back();
     state_document = _undo_states.back();
@@ -517,6 +541,7 @@ void MainWindow::loadAllPlugins(QStringList command_line_plugin_folders)
   plugin_folders += command_line_plugin_folders;
   plugin_folders += settings.value("Preferences::plugin_folders", QStringList()).toStringList();
   builtin_folders += QCoreApplication::applicationDirPath();
+  builtin_folders += PJ_PLUGIN_INSTALL_DIRECTORY;
 
   try
   {
@@ -596,11 +621,12 @@ void MainWindow::initializePlugins()
     ui->layoutPublishers->addWidget(start_checkbox, pub_row, 1);
     start_checkbox->setFocusPolicy(Qt::FocusPolicy::NoFocus);
 
+    StatePublisher* pub_ptr = publisher.get();
     connect(start_checkbox, &QCheckBox::toggled, this,
-            [=](bool enable) { publisher->setEnabled(enable); });
+            [pub_ptr](bool enable) { pub_ptr->setEnabled(enable); });
 
-    connect(publisher.get(), &StatePublisher::closed, start_checkbox,
-            [=]() { start_checkbox->setChecked(false); });
+    connect(pub_ptr, &StatePublisher::closed, start_checkbox,
+            [start_checkbox]() { start_checkbox->setChecked(false); });
 
     if (publisher->availableActions().empty())
     {
@@ -618,9 +644,9 @@ void MainWindow::initializePlugins()
       options_button->setIcon(LoadSvg(":/resources/svg/settings_cog.svg", "light"));
       options_button->setIconSize({ 16, 16 });
 
-      auto optionsMenu = [=]() {
+      auto optionsMenu = [pub_ptr, options_button, this]() {
         PopupMenu* menu = new PopupMenu(options_button, this);
-        for (auto action : publisher->availableActions())
+        for (auto action : pub_ptr->availableActions())
         {
           menu->addAction(action);
         }
@@ -681,10 +707,10 @@ void MainWindow::initializePlugins()
     connect(action, &QAction::triggered, toolbox_ptr, &ToolboxPlugin::onShowWidget);
 
     connect(action, &QAction::triggered, this,
-            [=]() { ui->widgetStack->setCurrentIndex(new_index); });
+            [this, new_index]() { ui->widgetStack->setCurrentIndex(new_index); });
 
     connect(toolbox_ptr, &ToolboxPlugin::closed, this,
-            [=]() { ui->widgetStack->setCurrentIndex(0); });
+            [this]() { ui->widgetStack->setCurrentIndex(0); });
 
     connect(toolbox_ptr, &ToolboxPlugin::importData, this,
             [this](PlotDataMapRef& new_data, bool remove_old) {
@@ -748,7 +774,7 @@ void MainWindow::buildDummyData()
   importPlotDataMap(datamap, true);
 }
 
-void MainWindow::on_splitterMoved(int, int)
+void MainWindow::on_splitterMoved(int size, int index)
 {
   QList<int> sizes = ui->mainSplitter->sizes();
   int max_left_size = _curvelist_widget->maximumWidth();
@@ -775,11 +801,23 @@ void MainWindow::on_splitterMoved(int, int)
     sizes[1] = totalWidth - max_left_size;
     ui->mainSplitter->setSizes(sizes);
   }
+
+  if (index > 0)
+  {
+    const bool collapsed = (sizes[0] == 0);
+    ui->centralWidget->layout()->setContentsMargins(collapsed ? 8 : 0, 0, 0, 0);
+  }
 }
 
 void MainWindow::resizeEvent(QResizeEvent*)
 {
   on_splitterMoved(0, 0);
+
+  // Update toast manager position
+  if (_toast_manager)
+  {
+    _toast_manager->updatePosition();
+  }
 }
 
 void MainWindow::onPlotAdded(PlotWidget* plot)
@@ -795,16 +833,18 @@ void MainWindow::onPlotAdded(PlotWidget* plot)
     updateTimeSlider();
   });
 
-  connect(&_time_offset, SIGNAL(valueChanged(double)), plot, SLOT(on_changeTimeOffset(double)));
+  connect(&_time_offset, &MonitoredValue::valueChanged, plot, &PlotWidget::on_changeTimeOffset);
 
   connect(ui->buttonUseDateTime, &QPushButton::toggled, plot, &PlotWidget::on_changeDateTimeScale);
 
   connect(plot, &PlotWidget::curvesDropped, _curvelist_widget, &CurveListPanel::clearSelections);
 
   connect(plot, &PlotWidget::legendSizeChanged, this, [=](int point_size) {
-    auto visitor = [=](PlotWidget* p) {
+    auto visitor = [this, plot, point_size](PlotWidget* p) {
       if (plot != p)
+      {
         p->setLegendSize(point_size);
+      }
     };
     this->forEachWidget(visitor);
   });
@@ -819,6 +859,24 @@ void MainWindow::onPlotAdded(PlotWidget* plot)
   plot->setKeepRatioXY(ui->buttonRatio->isChecked());
   plot->configureTracker(_tracker_param);
   plot->onShowPlot(ui->buttonShowpoint->isChecked());
+  plot->setDefaultStyle(ui->buttonDots->isChecked() ? PlotWidgetBase::LINES_AND_DOTS :
+                                                      PlotWidgetBase::LINES);
+
+  // Inherit legend settings from current state
+  plot->activateLegend(_labels_status != LabelStatus::HIDDEN);
+  if (_labels_status == LabelStatus::LEFT)
+  {
+    plot->setLegendAlignment(Qt::AlignLeft);
+  }
+  else if (_labels_status == LabelStatus::RIGHT)
+  {
+    plot->setLegendAlignment(Qt::AlignRight);
+  }
+
+  QSettings settings;
+  bool swap_pan_zoom = settings.value("Preferences::swap_pan_zoom", false).toBool();
+  plot->setSwapZoomPan(swap_pan_zoom);
+
   if (ui->buttonReferencePoint->isChecked() && _reference_tracker_time.has_value())
   {
     plot->onReferenceLineChecked(ui->buttonReferencePoint->isChecked(),
@@ -1214,7 +1272,9 @@ bool MainWindow::loadDataFromFiles(QStringList filenames)
   filenames.sort();
   std::map<QString, QString> filename_prefix;
 
-  if (filenames.size() > 1 || ui->checkBoxAddPrefixAndMerge->isChecked())
+  const bool add_prefix = ui->checkBoxAddPrefix->isChecked();
+  const bool merge_data = ui->checkBoxMergeData->isChecked();
+  if (add_prefix)
   {
     DialogMultifilePrefix dialog(filenames, this);
     int ret = dialog.exec();
@@ -1238,7 +1298,7 @@ bool MainWindow::loadDataFromFiles(QStringList filenames)
     {
       info.prefix = filename_prefix[info.filename];
     }
-    auto added_names = loadDataFromFile(info);
+    auto added_names = loadDataFromFile(info, merge_data);
     if (!added_names.empty())
     {
       loaded_filenames.push_back(filenames[i]);
@@ -1255,12 +1315,13 @@ bool MainWindow::loadDataFromFiles(QStringList filenames)
   {
     data_replaced_entirely = true;
   }
-  else if (!ui->checkBoxAddPrefixAndMerge->isChecked())
+  else if (!add_prefix)
   {
     QMessageBox::StandardButton reply;
-    reply = QMessageBox::question(this, tr("Warning"),
-                                  tr("Do you want to remove the previously loaded data?\n"),
-                                  QMessageBox::Yes | QMessageBox::No, QMessageBox::NoButton);
+    reply = QMessageBox::question(
+        this, tr("Warning"),
+        tr("Do you want to remove the previously loaded data?\nYes removes old data, No merges new and old data\n"),
+        QMessageBox::Yes | QMessageBox::No, QMessageBox::NoButton);
 
     if (reply == QMessageBox::Yes)
     {
@@ -1293,7 +1354,8 @@ bool MainWindow::loadDataFromFiles(QStringList filenames)
   return false;
 }
 
-std::unordered_set<std::string> MainWindow::loadDataFromFile(const FileLoadInfo& info)
+std::unordered_set<std::string> MainWindow::loadDataFromFile(const FileLoadInfo& info,
+                                                             bool merge_files)
 {
   ui->buttonPlay->setChecked(false);
 
@@ -1383,7 +1445,8 @@ std::unordered_set<std::string> MainWindow::loadDataFromFile(const FileLoadInfo&
         AddPrefixToPlotData(info.prefix.toStdString(), mapped_data.strings);
 
         added_names = mapped_data.getAllNames();
-        importPlotDataMap(mapped_data, true);
+        bool remove_old = !merge_files;
+        importPlotDataMap(mapped_data, remove_old);
 
         QDomElement plugin_elem = dataloader->xmlSaveState(new_info.plugin_config);
         new_info.plugin_config.appendChild(plugin_elem);
@@ -1629,9 +1692,18 @@ void MainWindow::enableStreamingNotificationsButton(bool enabled)
 
 void MainWindow::setStatusBarMessage(QString message)
 {
-  ui->statusLabel->setText(message);
-  ui->widgetStatusBar->setHidden(message.isEmpty());
-  QTimer::singleShot(7000, this, [this]() { ui->widgetStatusBar->setHidden(true); });
+  if (!message.isEmpty())
+  {
+    showToast(message);
+  }
+}
+
+void MainWindow::showToast(const QString& message, const QPixmap& icon)
+{
+  if (_toast_manager)
+  {
+    _toast_manager->showToast(message, icon);
+  }
 }
 
 void MainWindow::loadStyleSheet(QString file_path)
@@ -1855,7 +1927,7 @@ std::tuple<double, double, int> MainWindow::calculateVisibleRangeX()
         const double t1 = data.back().x;
         min_time = std::min(min_time, t0);
         max_time = std::max(max_time, t1);
-        max_steps = std::max(max_steps, (int)data.size());
+        max_steps = std::max(max_steps, (int)data.size() - 1);
       }
     }
   });
@@ -1872,7 +1944,7 @@ std::tuple<double, double, int> MainWindow::calculateVisibleRangeX()
         const double t1 = data.back().x;
         min_time = std::min(min_time, t0);
         max_time = std::max(max_time, t1);
-        max_steps = std::max(max_steps, (int)data.size());
+        max_steps = std::max(max_steps, (int)data.size() - 1);
       }
     }
   }
@@ -1899,12 +1971,18 @@ bool MainWindow::loadLayoutFromFile(QString filename)
     return false;
   }
 
+  // Read file content with explicit UTF-8 encoding to handle Unicode characters
+  QTextStream stream(&file);
+  stream.setCodec("UTF-8");
+  QString fileContent = stream.readAll();
+  file.close();
+
   QString errorStr;
   int errorLine, errorColumn;
 
   QDomDocument domDocument;
 
-  if (!domDocument.setContent(&file, true, &errorStr, &errorLine, &errorColumn))
+  if (!domDocument.setContent(fileContent, true, &errorStr, &errorLine, &errorColumn))
   {
     QMessageBox::information(window(), tr("XML Layout"),
                              tr("Parse error at line %1:\n%2").arg(errorLine).arg(errorStr));
@@ -1938,7 +2016,7 @@ bool MainWindow::loadLayoutFromFile(QString filename)
     auto plugin_elem = datafile_elem.firstChildElement("plugin");
     info.plugin_config.appendChild(info.plugin_config.importNode(plugin_elem, true));
 
-    loadDataFromFile(info);
+    loadDataFromFile(info, false);
     datafile_elem = datafile_elem.nextSiblingElement("fileInfo");
   }
 
@@ -2016,24 +2094,80 @@ bool MainWindow::loadLayoutFromFile(QString filename)
       snippets.push_back({ GetSnippetFromXML(custom_eq), custom_eq });
     }
     // A custom plot may depend on other custom plots.
-    // Reorder them to respect the mutual dependency.
-    auto DependOn = [](const SnippetPair& a, const SnippetPair& b) {
-      if (b.first.linked_source == a.first.alias_name)
-      {
-        return true;
-      }
-      for (const auto& source : b.first.additional_sources)
-      {
-        if (source == a.first.alias_name)
+    // Use topological sort to respect nested dependencies (e.g. A -> B -> C).
+    // Build a map from alias_name to index for quick lookup
+    std::map<QString, size_t> name_to_index;
+    for (size_t i = 0; i < snippets.size(); i++)
+    {
+      name_to_index[snippets[i].first.alias_name] = i;
+    }
+
+    // Build adjacency list: edges[i] contains indices that i depends on
+    // (i.e. must come before i)
+    std::vector<std::vector<size_t>> dependents(snippets.size());
+    std::vector<int> in_degree(snippets.size(), 0);
+
+    for (size_t i = 0; i < snippets.size(); i++)
+    {
+      auto addDep = [&](const QString& dep_name) {
+        auto it = name_to_index.find(dep_name);
+        if (it != name_to_index.end() && it->second != i)
         {
-          return true;
+          dependents[it->second].push_back(i);
+          in_degree[i]++;
+        }
+      };
+      addDep(snippets[i].first.linked_source);
+      for (const auto& source : snippets[i].first.additional_sources)
+      {
+        addDep(source);
+      }
+    }
+
+    // Kahn's algorithm for topological sorting
+    std::queue<size_t> queue;
+    for (size_t i = 0; i < in_degree.size(); i++)
+    {
+      if (in_degree[i] == 0)
+      {
+        queue.push(i);
+      }
+    }
+
+    std::vector<SnippetPair> sorted_snippets;
+    sorted_snippets.reserve(snippets.size());
+    while (!queue.empty())
+    {
+      size_t current = queue.front();
+      queue.pop();
+      sorted_snippets.push_back(std::move(snippets[current]));
+
+      // Process all dependents
+      for (size_t dependent : dependents[current])
+      {
+        in_degree[dependent]--;
+        if (in_degree[dependent] == 0)
+        {
+          queue.push(dependent);
         }
       }
-      return false;
-    };
-    std::sort(snippets.begin(), snippets.end(), DependOn);
+    }
 
-    for (const auto& [snippet, custom_eq] : snippets)
+    // If there are remaining snippets (circular dependency), append them as-is
+    if (sorted_snippets.size() < snippets.size())
+    {
+      QMessageBox::warning(this, tr("Exception"),
+                           tr("Cyclic dependency detected in custom equations."));
+      for (size_t i = 0; i < snippets.size(); i++)
+      {
+        if (in_degree[i] != 0)
+        {
+          sorted_snippets.push_back(std::move(snippets[i]));
+        }
+      }
+    }
+
+    for (const auto& [snippet, custom_eq] : sorted_snippets)
     {
       try
       {
@@ -2264,6 +2398,31 @@ void MainWindow::updateDataAndReplot(bool replot_hidden_tabs)
     for (const auto& str : move_ret.added_curves)
     {
       _curvelist_widget->addCurve(str);
+    }
+
+    // Periodic resync: if a curve was missed by addCurve on first detection
+    // (e.g. due to a transient issue), MoveData won't report it again.
+    // Re-attempt all known curves every ~2 seconds to recover.
+    if (++_curvelist_resync_counter >= 50)
+    {
+      _curvelist_resync_counter = 0;
+      bool any_added = false;
+      auto syncCurves = [this, &any_added](auto& series_map) {
+        for (const auto& [name, _] : series_map)
+        {
+          if (_curvelist_widget->addCurve(name))
+          {
+            any_added = true;
+          }
+        }
+      };
+      syncCurves(_mapped_plot_data.numeric);
+      syncCurves(_mapped_plot_data.scatter_xy);
+      syncCurves(_mapped_plot_data.strings);
+      if (any_added)
+      {
+        move_ret.curves_updated = true;
+      }
     }
 
     if (move_ret.curves_updated)
@@ -2875,22 +3034,20 @@ void MainWindow::on_buttonLoadDatafile_clicked()
 
   QSettings settings;
 
-  QString file_extension_filter;
-
-  std::set<QString> extensions;
-  for (auto& it : dataLoaders())
+  QString single_line_extensions;
+  QStringList extensions;
+  for (auto& [loader_name, loader] : dataLoaders())
   {
-    DataLoaderPtr loader = it.second;
+    QString filter_by_loader = QString("%1 (").arg(loader_name);
     for (QString extension : loader->compatibleFileExtensions())
     {
-      extensions.insert(extension.toLower());
+      filter_by_loader.append(QString("*.%1 ").arg(extension.toLower()));
+      single_line_extensions.append(QString("*.%1 ").arg(extension.toLower()));
     }
+    extensions.push_back(filter_by_loader.trimmed() + ")");
   }
-
-  for (const auto& it : extensions)
-  {
-    file_extension_filter.append(QString(" *.") + it);
-  }
+  extensions.push_front(QString("All Supported Files (%1)").arg(single_line_extensions.trimmed()));
+  extensions.push_back(QString("All Files (*)"));
 
   QString directory_path =
       settings.value("MainWindow.lastDatafileDirectory", QDir::currentPath()).toString();
@@ -2898,8 +3055,9 @@ void MainWindow::on_buttonLoadDatafile_clicked()
   QFileDialog loadDialog(this);
   loadDialog.setFileMode(QFileDialog::ExistingFiles);
   loadDialog.setViewMode(QFileDialog::Detail);
-  loadDialog.setNameFilter(file_extension_filter);
+  loadDialog.setNameFilter(extensions.join(";;"));
   loadDialog.setDirectory(directory_path);
+  loadDialog.setOption(QFileDialog::DontUseNativeDialog, true);
 
   QStringList fileNames;
   if (loadDialog.exec())
@@ -3073,6 +3231,7 @@ void MainWindow::on_buttonSaveLayout_clicked()
       colormap.appendChild(colormap_script);
       color_maps.appendChild(colormap);
     }
+    root.appendChild(color_maps);
   }
   root.appendChild(doc.createComment(" - - - - - - - - - - - - - - "));
   //------------------------------------
@@ -3080,6 +3239,7 @@ void MainWindow::on_buttonSaveLayout_clicked()
   if (file.open(QIODevice::WriteOnly))
   {
     QTextStream stream(&file);
+    stream.setCodec("UTF-8");
     stream << doc.toString() << "\n";
   }
 }
@@ -3159,6 +3319,7 @@ void MainWindow::on_actionPreferences_triggered()
 {
   QSettings settings;
   QString prev_style = settings.value("Preferences::theme", "light").toString();
+  bool prev_swap_pan_zoom = settings.value("Preferences::swap_pan_zoom", false).toBool();
 
   PreferencesDialog dialog;
   dialog.exec();
@@ -3168,6 +3329,14 @@ void MainWindow::on_actionPreferences_triggered()
   if (!theme.isEmpty() && theme != prev_style)
   {
     loadStyleSheet(tr(":/resources/stylesheet_%1.qss").arg(theme));
+  }
+
+  // Apply swap pan/zoom preference to all existing plots
+  bool swap_pan_zoom = settings.value("Preferences::swap_pan_zoom", false).toBool();
+  if (swap_pan_zoom != prev_swap_pan_zoom)
+  {
+    auto visitor = [swap_pan_zoom](PlotWidget* plot) { plot->setSwapZoomPan(swap_pan_zoom); };
+    forEachWidget(visitor);
   }
 }
 
@@ -3397,14 +3566,14 @@ void MainWindow::on_buttonReloadData_clicked()
   _loaded_datafiles_previous.clear();
   for (const auto& info : prev_infos)
   {
-    loadDataFromFile(info);
+    loadDataFromFile(info, false);
   }
   ui->buttonReloadData->setEnabled(!_loaded_datafiles_previous.empty());
 }
 
 void MainWindow::on_buttonCloseStatus_clicked()
 {
-  ui->widgetStatusBar->hide();
+  // Status bar removed - using toast notifications instead
 }
 
 void MainWindow::on_buttonReferencePoint_toggled(bool checked)
@@ -3424,4 +3593,9 @@ void MainWindow::on_buttonReferencePoint_toggled(bool checked)
 void MainWindow::on_buttonShowpoint_toggled(bool checked)
 {
   this->forEachWidget([checked](PlotWidget* plot) { plot->onShowPlot(checked); });
+}
+
+void MainWindow::on_buttonDots_toggled(bool checked)
+{
+  forEachWidget([&](PlotWidget* plot) { plot->changeDots(checked); });
 }

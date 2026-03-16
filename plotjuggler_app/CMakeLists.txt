@@ -18,13 +18,13 @@ qt5_wrap_ui(
   curvelist_panel.ui
   preferences_dialog.ui
   suggest_dialog.ui
-  new_release_dialog.ui
   multifile_prefix.ui
   colormap_editor.ui
   colormap_selector.ui
   statistics_dialog.ui
   plot_docker_toolbar.ui
   plotwidget_editor.ui
+  transforms/binary_filter.ui
   transforms/function_editor.ui
   transforms/function_editor_help.ui
   transforms/transform_selector.ui
@@ -52,8 +52,9 @@ set(PLOTJUGGLER_SRC
     main.cpp
     mainwindow.cpp
     messageparser_base.cpp
+    toast_notification.cpp
+    toast_manager.cpp
     menubar.cpp
-    new_release_dialog.cpp
     plugin_manager.cpp
     plotwidget.cpp
     plotwidget_editor.cpp
@@ -70,6 +71,7 @@ set(PLOTJUGGLER_SRC
     tabbedplotwidget.cpp
     tab_widget.h
     tree_completer.h
+    transforms/binary_filter.cpp
     transforms/custom_function.cpp
     transforms/function_editor.cpp
     transforms/transform_selector.cpp
@@ -90,8 +92,8 @@ set(PLOTJUGGLER_SRC
     realslider.h
     nlohmann_parsers.cpp)
 
-if(wasmtime_FOUND)
-    list(APPEND PLOTJUGGLER_SRC wasm_runtime.cpp wasm_parser.cpp)
+if(wasmer_FOUND)
+  list(APPEND PLOTJUGGLER_SRC wasm_runtime.cpp wasm_parser.cpp)
 endif()
 
 # This option enables the creation of a *.app MacOS application
@@ -138,9 +140,16 @@ else()
         ${BACKWARD_ENABLE} )
 endif()
 
-if(wasmtime_FOUND)
-  target_link_libraries(plotjuggler PRIVATE wasmtime::wasmtime)
+if(wasmer_FOUND)
+  target_link_libraries(plotjuggler PRIVATE wasmer::wasmer)
   target_compile_definitions(plotjuggler PRIVATE WASM_RUNTIME_ENABLED)
+  if(WIN32 AND NOT MINGW)
+    add_custom_command(TARGET plotjuggler POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:wasmer::wasmer>"
+        "$<TARGET_FILE_DIR:plotjuggler>"
+      COMMENT "Copying wasmer.dll to output directory")
+  endif()
 endif()
 
 if(NOT WIN32)
@@ -151,6 +160,8 @@ if(APPIMAGE_BUILD)
   message(STATUS "Building PlotJuggler as an AppImage")
   target_compile_definitions(plotjuggler PRIVATE APPIMAGE_BUILD)
 endif()
+
+target_compile_definitions(plotjuggler PRIVATE PJ_INSTALLATION="${PJ_INSTALLATION}")
 
 target_include_directories(
   plotjuggler

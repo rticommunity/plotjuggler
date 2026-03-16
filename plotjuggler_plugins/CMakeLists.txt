@@ -8,6 +8,8 @@ add_subdirectory(DataStreamWebsocket)
 add_subdirectory(DataStreamUDP)
 add_subdirectory(DataStreamMQTT)
 add_subdirectory(DataStreamZMQ)
+add_subdirectory(DataStreamFoxgloveBridge)
+add_subdirectory(DataStreamPlotJugglerBridge)
 
 add_subdirectory(StatePublisherCSV)
 add_subdirectory(VideoViewer)

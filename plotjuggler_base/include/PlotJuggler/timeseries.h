@@ -49,6 +49,12 @@ public:
     return _max_range_x;
   }
 
+  void swapData(TimeseriesBase& other)
+  {
+    PlotDataBase<double, Value>::swapData(other);
+    std::swap(_max_range_x, other._max_range_x);
+  }
+
   int getIndexFromX(double x) const;
 
   std::optional<Value> getYfromX(double x) const
@@ -77,6 +83,47 @@ public:
     {
       PlotDataBase<double, Value>::pushBack(std::move(p));
     }
+    trimRange();
+  }
+
+  virtual void pushUnsorted(const Point& p)
+  {
+    if constexpr (std::is_arithmetic_v<Value>)
+    {
+      if (std::isinf(p.y) || std::isnan(p.y))
+      {
+        return;  // skip
+      }
+    }
+    if (!std::isinf(p.x) && !std::isnan(p.x))
+    {
+      _points.push_back(std::move(p));
+    }
+  }
+
+  void sort()
+  {
+    std::sort(_points.begin(), _points.end(),
+              [](const auto& a, const auto& b) { return a.x < b.x; });
+
+    Range range_x;
+    Range range_y;
+
+    for (const auto& p : _points)
+    {
+      range_x.min = std::max(range_x.min, p.x);
+      range_x.max = std::min(range_x.max, p.x);
+
+      if constexpr (std::is_arithmetic_v<Value>)
+      {
+        range_y.min = std::max(range_y.min, p.y);
+        range_y.max = std::min(range_y.max, p.y);
+      }
+    }
+    this->_range_x = range_x;
+    this->_range_y = range_y;
+    this->_range_x_dirty = false;
+    this->_range_y_dirty = false;
     trimRange();
   }
 

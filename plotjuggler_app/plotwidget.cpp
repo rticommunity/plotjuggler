@@ -150,14 +150,14 @@ void PlotWidget::buildActions()
   QIcon iconDeleteList;
 
   _action_edit = new QAction("&Edit curves...", this);
-  connect(_action_edit, &QAction::triggered, this, [=]() {
+  connect(_action_edit, &QAction::triggered, this, [this]() {
     auto editor_dialog = new PlotwidgetEditor(this, qwtPlot());
     editor_dialog->exec();
     editor_dialog->deleteLater();
   });
 
   _action_formula = new QAction("&Apply filter to data...", this);
-  connect(_action_formula, &QAction::triggered, this, [=]() {
+  connect(_action_formula, &QAction::triggered, this, [this]() {
     auto editor_dialog = new DialogTransformEditor(this);
     int res = editor_dialog->exec();
     editor_dialog->deleteLater();
@@ -657,29 +657,29 @@ QDomElement PlotWidget::xmlSaveState(QDomDocument& doc) const
   }
   plot_el.appendChild(limitY_el);
 
-  if (curveStyle() == PlotWidgetBase::LINES)
+  if (overriddenCurvesStyle().has_value())
   {
-    plot_el.setAttribute("style", "Lines");
-  }
-  else if (curveStyle() == PlotWidgetBase::LINES_AND_DOTS)
-  {
-    plot_el.setAttribute("style", "LinesAndDots");
-  }
-  else if (curveStyle() == PlotWidgetBase::DOTS)
-  {
-    plot_el.setAttribute("style", "Dots");
-  }
-  else if (curveStyle() == PlotWidgetBase::STICKS)
-  {
-    plot_el.setAttribute("style", "Sticks");
-  }
-  else if (curveStyle() == PlotWidgetBase::STEPS)
-  {
-    plot_el.setAttribute("style", "Steps");
-  }
-  else if (curveStyle() == PlotWidgetBase::STEPSINV)
-  {
-    plot_el.setAttribute("style", "StepsInv");
+    switch (overriddenCurvesStyle().value())
+    {
+      case PlotWidgetBase::LINES:
+        plot_el.setAttribute("style", "Lines");
+        break;
+      case PlotWidgetBase::DOTS:
+        plot_el.setAttribute("style", "Dots");
+        break;
+      case PlotWidgetBase::LINES_AND_DOTS:
+        plot_el.setAttribute("style", "LinesAndDots");
+        break;
+      case PlotWidgetBase::STICKS:
+        plot_el.setAttribute("style", "Sticks");
+        break;
+      case PlotWidgetBase::STEPS:
+        plot_el.setAttribute("style", "Steps");
+        break;
+      case PlotWidgetBase::STEPSINV:
+        plot_el.setAttribute("style", "StepsInv");
+        break;
+    }
   }
 
   for (auto& it : curveList())
@@ -719,6 +719,22 @@ QDomElement PlotWidget::xmlSaveState(QDomDocument& doc) const
   plot_el.setAttribute("flip_x", isXYPlot() && _flip_x->isChecked() ? "true" : "false");
   plot_el.setAttribute("flip_y", _flip_y->isChecked() ? "true" : "false");
 
+  switch (lineWidth())
+  {
+    case POINTS_1_0:
+      plot_el.setAttribute("line_width", "1.0");
+      break;
+    case POINTS_1_5:
+      plot_el.setAttribute("line_width", "1.5");
+      break;
+    case POINTS_2_0:
+      plot_el.setAttribute("line_width", "2.0");
+      break;
+    case POINTS_3_0:
+      plot_el.setAttribute("line_width", "3.0");
+      break;
+  }
+
   if (_background_item)
   {
     plot_el.setAttribute("background_data", _background_item->dataName());
@@ -737,6 +753,24 @@ bool PlotWidget::xmlLoadState(QDomElement& plot_widget, bool autozoom)
 
   _flip_x->setChecked(plot_widget.attribute("flip_x") == "true");
   _flip_y->setChecked(plot_widget.attribute("flip_y") == "true");
+
+  auto line_width_str = plot_widget.attribute("line_width", QString("1.0"));
+  if (line_width_str == "1.0")
+  {
+    setLineWidth(LineWidth::POINTS_1_0);
+  }
+  else if (line_width_str == "1.5")
+  {
+    setLineWidth(LineWidth::POINTS_1_5);
+  }
+  else if (line_width_str == "2.0")
+  {
+    setLineWidth(LineWidth::POINTS_2_0);
+  }
+  else if (line_width_str == "3.0")
+  {
+    setLineWidth(LineWidth::POINTS_3_0);
+  }
 
   QDomElement limitY_el = plot_widget.firstChildElement("limitY");
 
@@ -795,7 +829,6 @@ bool PlotWidget::xmlLoadState(QDomElement& plot_widget, bool autozoom)
           continue;
         }
         auto& curve = curve_info->curve;
-        curve->setPen(color, 1.3);
         added_curve_names.insert(curve_name_std);
 
         auto ts = dynamic_cast<TransformedTimeseries*>(curve->data());
@@ -874,29 +907,34 @@ bool PlotWidget::xmlLoadState(QDomElement& plot_widget, bool autozoom)
     QString style = plot_widget.attribute("style");
     if (style == "Lines")
     {
-      changeCurvesStyle(PlotWidgetBase::LINES);
+      overrideCurvesStyle(std::nullopt);
     }
     else if (style == "LinesAndDots")
     {
-      changeCurvesStyle(PlotWidgetBase::LINES_AND_DOTS);
+      overrideCurvesStyle(PlotWidgetBase::LINES_AND_DOTS);
     }
     else if (style == "Dots")
     {
-      changeCurvesStyle(PlotWidgetBase::DOTS);
+      overrideCurvesStyle(PlotWidgetBase::DOTS);
     }
     else if (style == "Sticks")
     {
-      changeCurvesStyle(PlotWidgetBase::STICKS);
+      overrideCurvesStyle(PlotWidgetBase::STICKS);
     }
     else if (style == "Steps")
     {
-      changeCurvesStyle(PlotWidgetBase::STEPS);
+      overrideCurvesStyle(PlotWidgetBase::STEPS);
     }
     else if (style == "StepsInv")
     {
-      changeCurvesStyle(PlotWidgetBase::STEPSINV);
+      overrideCurvesStyle(PlotWidgetBase::STEPSINV);
     }
   }
+  else
+  {
+    overrideCurvesStyle(std::nullopt);
+  }
+  updateCurvesStyle();
 
   QString bg_data = plot_widget.attribute("background_data");
   QString bg_colormap = plot_widget.attribute("background_colormap");
@@ -1184,6 +1222,12 @@ void PlotWidget::updateStatistics(bool forceUpdate)
       _statistics_dialog->update({ rect.left(), rect.right() });
     }
   }
+}
+
+void PlotWidget::changeDots(bool force_dots)
+{
+  setDefaultStyle(force_dots ? CurveStyle::LINES_AND_DOTS : CurveStyle::LINES);
+  updateCurvesStyle();
 }
 
 void PlotWidget::on_changeCurveColor(const QString& curve_name, QColor new_color)
@@ -1643,14 +1687,6 @@ bool PlotWidget::eventFilter(QObject* obj, QEvent* event)
   return false;
 }
 
-void PlotWidget::overrideCursonMove()
-{
-  QSettings settings;
-  QString theme = settings.value("Preferences::theme", "light").toString();
-  auto pixmap = LoadSvg(":/resources/svg/move_view.svg", theme);
-  QApplication::setOverrideCursor(QCursor(pixmap.scaled(24, 24)));
-}
-
 void PlotWidget::setAxisScale(QwtAxisId axisId, double min, double max)
 {
   if (min > max)
@@ -1688,6 +1724,8 @@ bool PlotWidget::canvasEventFilter(QEvent* event)
 {
   switch (event->type())
   {
+    default:
+      break;
     case QEvent::MouseButtonPress: {
       if (_dragging.mode != DragInfo::NONE)
       {
@@ -1706,17 +1744,12 @@ bool PlotWidget::canvasEventFilter(QEvent* event)
           emit trackerMoved(pointF);
           return true;  // don't pass to canvas().
         }
-        else if (mouse_event->modifiers() == Qt::ControlModifier)  // panner
-        {
-          overrideCursonMove();
-        }
         return false;  // send to canvas()
       }
       else if (mouse_event->buttons() == Qt::MiddleButton &&
                mouse_event->modifiers() == Qt::NoModifier)
       {
-        overrideCursonMove();
-        return false;
+        return false;  // send to canvas()
       }
       else if (mouse_event->button() == Qt::RightButton)
       {
@@ -1757,7 +1790,6 @@ bool PlotWidget::canvasEventFilter(QEvent* event)
     case QEvent::MouseButtonRelease: {
       if (_dragging.mode == DragInfo::NONE)
       {
-        QApplication::restoreOverrideCursor();
         return false;
       }
     }

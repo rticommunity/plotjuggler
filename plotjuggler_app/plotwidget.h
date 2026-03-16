@@ -83,6 +83,8 @@ public:
 
   void updateStatistics(bool forceUpdate = false);
 
+  void changeDots(bool force_dots);
+
 protected:
   PlotDataMapRef& _mapped_data;
 
@@ -245,7 +247,6 @@ private:
 
   // void updateMaximumZoomArea();
   void rescaleEqualAxisScaling();
-  void overrideCursonMove();
 
   void setAxisScale(QwtAxisId axisId, double min, double max);
 };

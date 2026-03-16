@@ -2,6 +2,7 @@
 #include "ui_datastream_zmq.h"
 
 #include "PlotJuggler/messageparser_base.h"
+#include "PlotJuggler/dialog_utils.h"
 #include <QDebug>
 #include <QDialog>
 #include <QIntValidator>
@@ -72,6 +73,10 @@ bool DataStreamZMQ::start(QStringList*)
   QSettings settings;
   QString address = settings.value("ZMQ_Subscriber::address", "localhost").toString();
   QString protocol = settings.value("ZMQ_Subscriber::protocol", "JSON").toString();
+  if (parserFactories()->find(protocol) == parserFactories()->end())
+  {
+    protocol = parserFactories()->begin()->first;
+  }
   QString topics = settings.value("ZMQ_Subscriber::topics", "").toString();
   _is_connect = settings.value("ZMQ_Subscriber::is_connect", true).toBool();
 
@@ -106,7 +111,7 @@ bool DataStreamZMQ::start(QStringList*)
   dialog->ui->lineEditTopics->setText(topics);
 
   connect(dialog->ui->comboBoxProtocol, qOverload<const QString&>(&QComboBox::currentIndexChanged),
-          this, [&](const QString& selected_protocol) {
+          this, [this, dialog](const QString& selected_protocol) {
             if (_parser_creator)
             {
               if (auto prev_widget = _parser_creator->optionsWidget())
@@ -116,10 +121,7 @@ bool DataStreamZMQ::start(QStringList*)
             }
             _parser_creator = parserFactories()->at(selected_protocol);
 
-            if (auto widget = _parser_creator->optionsWidget())
-            {
-              widget->setVisible(true);
-            }
+            showOptionsWidget(dialog, dialog->ui->boxOptions, _parser_creator->optionsWidget());
           });
 
   dialog->ui->comboBoxProtocol->setCurrentText(protocol);
