@@ -260,12 +260,14 @@ int main(int argc, char* argv[])
 
   QCommandLineOption skin_path_option(
       QStringList() << "skin_path",
-      "New \"skin\". Refer to the sample in [plotjuggler_app/resources/skin] path to folder");
+      "New \"skin\". Refer to the sample in [plotjuggler_app/resources/skin] path to folder",
+      "path");
   parser.addOption(skin_path_option);
 
   QCommandLineOption start_streamer(
       QStringList() << "start_streamer",
-      "Automatically start a Streaming Plugin with the given file_name (no extension)");
+      "Automatically start a Streaming Plugin with the given file_name (no extension)",
+      "plugin_name");
   parser.addOption(start_streamer);
 
   QCommandLineOption window_title(QStringList() << "window_title", "Set the window title",
@@ -349,6 +351,8 @@ int main(int argc, char* argv[])
     splash.move(currentDesktopsCenter - splash.rect().center());
 
     splash.show();
+    splash.raise();
+    splash.activateWindow();
     app.processEvents();
 
     auto deadline = QDateTime::currentDateTime().addMSecs(500);
@@ -386,22 +390,19 @@ int main(int argc, char* argv[])
   if ( parser.isSet(skin_path_option) )
   {
     QDir path( parser.value(skin_path_option) );
+
     QFile latest_release_url_file = path.filePath("latest_release_url.txt");
     if ( latest_release_url_file.exists() ) {
-      if ( !latest_release_url_file.open( QIODevice::ReadOnly | QIODevice::Text)) {
-          qDebug() << "Latest release filepath [" <<  latest_release_url_file.fileName() << "] not found";
-          return -1;
+      if ( latest_release_url_file.open( QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&latest_release_url_file);
+        latest_release_url = in.readLine();
+      } else {
+        qDebug() << "Latest release URL file could not be opened: " << latest_release_url_file.fileName();
       }
-      QTextStream in(&latest_release_url_file);
-      latest_release_url = in.readLine();
     }
 
     QFile update_plotjuggler_pixmap_file = path.filePath("update_plotjuggler.png");
     if ( update_plotjuggler_pixmap_file.exists() ) {
-      if ( !update_plotjuggler_pixmap_file.open( QIODevice::ReadOnly | QIODevice::Text)) {
-          qDebug() << "Update PlotJuggler image [" <<  update_plotjuggler_pixmap_file.fileName() << "] not found";
-          return -1;
-      }
       update_plotjuggler_pixmap = update_plotjuggler_pixmap_file.fileName();
     }
   }

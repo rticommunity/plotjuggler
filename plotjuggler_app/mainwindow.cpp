@@ -749,7 +749,7 @@ void MainWindow::initializePlugins()
     // remember the previous one
     QSettings settings;
     QString streaming_name =
-        settings.value("MainWindow.previousStreamingPlugin", ui->comboStreaming->itemText(0))
+        settings.value("MainWindow.previousStreamingPlugin", QString("RTI Connext DDS"))
             .toString();
 
     const auto& data_streamers = _plugin_manager.dataStreamers();
