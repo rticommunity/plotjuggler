@@ -416,7 +416,7 @@ int main(int argc, char* argv[])
         [window, update_plotjuggler_pixmap](QNetworkReply* reply) {
             if (reply->error())
             {
-                qDebug() << "GitHub release check error:" << reply->error() << reply->errorString();
+                qDebug() << "release check error:" << reply->error() << reply->errorString();
                 return;
             }
 
@@ -435,7 +435,7 @@ int main(int argc, char* argv[])
         if (online_number > current_number)
         {
           QString message = QString("New release available: <b>%1</b><br>"
-                                    "<a href=\"%2\">View on GitHub</a>")
+                                    "<a href=\"%2\">View on RTI Community</a>")
                                 .arg(name, url);
           QPixmap icon;
           if (!update_plotjuggler_pixmap.isEmpty()) {
